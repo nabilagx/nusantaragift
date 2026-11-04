@@ -1,26 +1,104 @@
+
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ng-cream: #F7F1E3;
+  --ng-red: #93372A;
+  --ng-gold: #E3AD3E;
+  --ng-pink: #F0CDD5;
+  --ng-navy: #002140;
+  --ng-dark: #222222;
+  --ng-white: #FFFFFF;
+
+  --background: var(--ng-cream);
+  --foreground: var(--ng-dark);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-cream: var(--ng-cream);
+  --color-brand: var(--ng-red);
+  --color-gold: var(--ng-gold);
+  --color-soft-pink: var(--ng-pink);
+  --color-navy: var(--ng-navy);
+
+  --font-sans: var(--font-poppins);
+  --font-quicksand: var(--font-quicksand);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
 }
 
 body {
+  min-height: 100vh;
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-poppins), sans-serif;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* Splash loading animation */
+@keyframes splashLoading {
+  from {
+    width: 0%;
+  }
+
+  to {
+    width: 100%;
+  }
+}
+
+.splash-loading {
+  animation: splashLoading 1.8s ease-in-out forwards;
+}
+
+/* Hide scrollbar */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+
+@keyframes toast-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toast-enter {
+  animation: toast-pop-in 220ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-enter {
+    animation: none;
+  }
 }
