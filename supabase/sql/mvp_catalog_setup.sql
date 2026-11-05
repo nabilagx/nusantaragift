@@ -150,6 +150,11 @@ begin
     v_quantity := (v_item->>'quantity')::integer;
     select id,seller_id,name,price,stock,metadata,sku into v_product
       from public.products where slug=v_slug and status='active';
+    update public.products
+      set stock = stock - v_quantity, updated_at = now()
+      where id = v_product.id and stock >= v_quantity;
+    if not found then raise exception 'INSUFFICIENT_STOCK: %', v_slug; end if;
+
     insert into public.order_items
       (order_id,product_id,seller_id,product_name,product_image_url,sku,unit_price,quantity,line_total,gift_message)
     values
