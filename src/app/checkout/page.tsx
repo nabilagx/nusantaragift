@@ -95,6 +95,7 @@ export default function CheckoutPage() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isCatalogLoaded, setIsCatalogLoaded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
   const [form, setForm] = useState<CheckoutData>({
     recipientType: "self", name: "", phone: "", email: "", address: "", notes: "",
     giftCardType: "none", giftRecipient: "", giftSender: "", giftMessage: "", paymentMethod: "qris",
@@ -185,6 +186,7 @@ export default function CheckoutPage() {
     event.preventDefault();
     if (isSubmitting) return;
     setIsSubmitting(true);
+    setCheckoutError("");
     try {
       const giftCardDesign = form.giftCardType === "none" ? null : {
         background: cardColor,
@@ -209,29 +211,11 @@ export default function CheckoutPage() {
       if (!response.ok) throw new Error(result.error || "Pesanan gagal dibuat.");
 
       const orderId = result.order.orderNumber as string;
-      const checkoutData = {
-        orderId,
-        databaseOrderId: result.order.id,
-        ...form,
-        items: cartProducts.map(({ quantity, subtotal: itemSubtotal, ...product }) => ({
-          productId: product.id, title: product.title, price: product.price, quantity, subtotal: itemSubtotal,
-        })),
-        subtotal: result.order.subtotal,
-        giftCardPrice: result.order.giftCardFee,
-        shippingCost: null,
-        total: result.order.total,
-        totalItems,
-        paymentStatus: "PENDING",
-        orderStatus: "WAITING_FOR_SHIPPING_QUOTE",
-        paymentMode: "DUMMY",
-        giftCardDesign,
-        createdAt: new Date().toISOString(),
-      };
       localStorage.removeItem(CART_KEY);
       router.push(`/checkout/payment/${orderId}`);
     } catch (error) {
       console.error("Gagal membuat pesanan:", error);
-      alert(error instanceof Error ? error.message : "Pesanan belum berhasil dibuat. Silakan coba lagi.");
+      setCheckoutError(error instanceof Error ? error.message : "Pesanan belum berhasil dibuat. Silakan coba lagi.");
     } finally {
       setIsSubmitting(false);
     }
@@ -250,6 +234,7 @@ export default function CheckoutPage() {
       <div className="mb-8 flex items-center gap-3"><div className="flex items-center gap-2 text-[#93372A]"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#93372A] text-sm font-bold text-white">1</span><span className="text-sm font-semibold">Checkout</span></div><div className="h-px flex-1 bg-[#D9C9AF]" /><div className="flex items-center gap-2 text-[#A99B89]"><span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#D9C9AF] text-sm font-semibold">2</span><span className="text-sm">Pembayaran</span></div></div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 items-start gap-7 pb-10 lg:grid-cols-[1fr_350px]">
+        {checkoutError && <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800 lg:col-span-2"><strong className="block">Checkout belum berhasil</strong>{checkoutError}<p className="mt-1 text-xs text-red-700">Keranjangmu tetap tersimpan. Periksa data penerima dan coba lagi.</p></div>}
         <section className="space-y-6">
           <div className="rounded-2xl border border-[#E9DFCE] bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-5 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F0CDD5]/50"><Gift className="text-[#93372A]" size={20} /></div><div><h2 className="text-lg font-bold">Kado ini untuk siapa?</h2><p className="text-xs text-[#77716A]">Tentukan tujuan pengiriman kadomu.</p></div></div>
