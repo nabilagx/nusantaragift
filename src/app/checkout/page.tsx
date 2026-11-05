@@ -206,6 +206,10 @@ export default function CheckoutPage() {
         }),
       });
       const result = await response.json();
+      if (response.status === 401) {
+        router.push("/login?next=%2Fcheckout");
+        return;
+      }
       if (!response.ok) throw new Error(result.error || "Pesanan gagal dibuat.");
 
       const orderId = result.order.orderNumber as string;
