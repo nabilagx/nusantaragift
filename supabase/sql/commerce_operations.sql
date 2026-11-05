@@ -1,8 +1,26 @@
+-- Prevent recursive RLS evaluation between orders and order_items.
+create or replace function public.is_seller_of_order(p_order_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select auth.uid() is not null
+    and exists (select 1 from public.order_items oi
+      where oi.order_id=p_order_id and oi.seller_id=auth.uid());
+$$;
+revoke all on function public.is_seller_of_order(uuid) from public, anon;
+grant execute on function public.is_seller_of_order(uuid) to authenticated;
+
+drop policy if exists "Sellers read order rows for their products" on public.orders;
+create policy "Sellers read order rows for their products"
+on public.orders for select to authenticated
+using (public.is_seller_of_order(id));
+
+-- Seller order actions: paid -> processing -> shipped.
 create or replace function public.seller_update_order_status(
-  p_order_number text,
-  p_status text,
-  p_courier text default null,
-  p_tracking_number text default null
+  p_order_number text, p_status text, p_courier text default null, p_tracking_number text default null
 )
 returns jsonb
 language plpgsql
@@ -43,3 +61,6 @@ end;
 $$;
 revoke all on function public.seller_update_order_status(text,text,text,text) from public,anon;
 grant execute on function public.seller_update_order_status(text,text,text,text) to authenticated;
+
+-- This helper was only intended for database administration, not the Data API.
+revoke all on function public.rls_auto_enable() from public, anon, authenticated;
