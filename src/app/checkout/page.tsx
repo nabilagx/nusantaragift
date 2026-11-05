@@ -189,33 +189,6 @@ export default function CheckoutPage() {
     event.preventDefault();
     if (isSubmitting) return;
     setIsSubmitting(true);
-    const checkoutData = {
-      orderId,
-      ...form,
-      items: cartProducts.map(({ quantity, subtotal: itemSubtotal, ...product }) => ({
-        productId: product.id,
-        title: product.title,
-        price: product.price,
-        quantity,
-        subtotal: itemSubtotal,
-      })),
-      subtotal,
-      giftCardPrice,
-      shippingCost: null,
-      total,
-      totalItems,
-      paymentStatus: "PENDING",
-      orderStatus: "WAITING_FOR_DUMMY_PAYMENT",
-      paymentMode: "DUMMY",
-      giftCardDesign: form.giftCardType === "none" ? null : {
-        background: cardColor,
-        fontFamily: isLuxury ? fontFamily : fonts[0].value,
-        fontColor: isLuxury ? fontColor : getContrastText(cardColor),
-        ornaments: canUseOrnaments ? ornaments : [],
-      },
-      createdAt: new Date().toISOString(),
-    };
-
     try {
       const giftCardDesign = form.giftCardType === "none" ? null : {
         background: cardColor,
