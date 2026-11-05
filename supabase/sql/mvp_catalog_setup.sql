@@ -18,6 +18,7 @@ alter table public.orders add constraint orders_shipping_quote_status_check
 alter table public.orders drop constraint if exists orders_gift_card_fee_check;
 alter table public.orders add constraint orders_gift_card_fee_check check (gift_card_fee >= 0);
 
+create unique index if not exists products_slug_global_unique_idx on public.products (slug);
 create index if not exists products_status_created_at_idx on public.products (status, created_at desc);
 create index if not exists products_seller_created_at_idx on public.products (seller_id, created_at desc);
 create index if not exists orders_buyer_created_at_idx on public.orders (buyer_id, created_at desc);
