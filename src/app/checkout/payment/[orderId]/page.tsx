@@ -1,4 +1,3 @@
-import ShopLayout from "@/components/shop/ShopLayout";
 import PaymentClient from "./PaymentClient";
 
 type PageProps = { params: Promise<{ orderId: string }> };
