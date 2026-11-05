@@ -13,6 +13,8 @@ type DummyOrder = {
   name: string;
   paymentMethod: PaymentMethod;
   total: number;
+  shippingCost: number;
+  shippingQuoteStatus: "pending" | "quoted";
   paymentStatus: "PENDING" | "PAID" | "CANCELLED";
   orderStatus: string;
   createdAt: string;
@@ -33,37 +35,42 @@ export default function DummyPaymentPage() {
   const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  async function refreshOrder() {
+    const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}`, { cache: "no-store" });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Pesanan tidak ditemukan.");
+    setOrder(result.order as DummyOrder);
+  }
+
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(ORDERS_KEY);
-      const orders: DummyOrder[] = raw ? JSON.parse(raw) : [];
-      const found = Array.isArray(orders) ? orders.find((item) => item.orderId === orderId) : null;
-      setOrder(found || null);
-    } catch (error) {
-      console.error("Gagal membaca pesanan:", error);
-      setOrder(null);
-    } finally {
-      setLoaded(true);
-    }
+    let active = true;
+    fetch(`/api/orders/${encodeURIComponent(orderId)}`, { cache: "no-store" })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Pesanan tidak ditemukan.");
+        if (active) setOrder(result.order as DummyOrder);
+      })
+      .catch((error) => {
+        console.error("Gagal mengambil pesanan:", error);
+        if (active) setOrder(null);
+      })
+      .finally(() => { if (active) setLoaded(true); });
+    return () => { active = false; };
   }, [orderId]);
 
-  function updateOrderStatus(status: "PAID" | "CANCELLED") {
-    if (!order) return;
-    const updated: DummyOrder = {
-      ...order,
-      paymentStatus: status,
-      orderStatus: status === "PAID" ? "PAID" : "CANCELLED",
-    };
+  async function updateOrderStatus(status: "PAID" | "CANCELLED") {
     try {
-      const raw = localStorage.getItem(ORDERS_KEY);
-      const orders: DummyOrder[] = raw ? JSON.parse(raw) : [];
-      const nextOrders = (Array.isArray(orders) ? orders : []).map((item) => item.orderId === orderId ? updated : item);
-      localStorage.setItem(ORDERS_KEY, JSON.stringify(nextOrders));
-      localStorage.setItem(CHECKOUT_KEY, JSON.stringify(updated));
-      setOrder(updated);
+      const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/demo-payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Status simulasi gagal diperbarui.");
+      await refreshOrder();
     } catch (error) {
       console.error("Gagal memperbarui status simulasi:", error);
-      alert("Status simulasi gagal diperbarui. Coba lagi.");
+      alert(error instanceof Error ? error.message : "Status simulasi gagal diperbarui.");
     }
   }
 
@@ -82,6 +89,7 @@ export default function DummyPaymentPage() {
 
   const isPaid = order.paymentStatus === "PAID";
   const isCancelled = order.paymentStatus === "CANCELLED";
+  const waitingShipping = order.shippingQuoteStatus !== "quoted";
   const vaNumber = `8808${order.orderId.replace(/\D/g, "").padStart(10, "0").slice(-10)}`;
 
   return (
@@ -98,7 +106,8 @@ export default function DummyPaymentPage() {
             <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${isPaid ? "bg-green-100 text-green-800" : isCancelled ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}>{isPaid ? "PAID · SIMULASI" : isCancelled ? "CANCELLED · SIMULASI" : "MENUNGGU PEMBAYARAN"}</span>
           </div>
           <div className="my-5 border-t border-dashed border-[#D9C9AF]"/>
-          <div className="flex items-center justify-between gap-3"><span className="text-sm text-[#77716A]">Total pembayaran (belum termasuk ongkir)</span><strong className="text-xl text-[#93372A]">{formatRupiah(order.total)}</strong></div>
+          <div className="flex items-center justify-between gap-3"><span className="text-sm text-[#77716A]">Ongkos kirim</span><strong className="text-sm">{waitingShipping ? "Menunggu admin" : formatRupiah(order.shippingCost)}</strong></div>
+          <div className="mt-3 flex items-center justify-between gap-3"><span className="text-sm text-[#77716A]">Total pembayaran</span><strong className="text-xl text-[#93372A]">{formatRupiah(order.total)}</strong></div>
           <p className="mt-2 text-xs text-[#A99B89]">Dibuat {new Date(order.createdAt).toLocaleString("id-ID")}</p>
         </div>
 
@@ -111,6 +120,13 @@ export default function DummyPaymentPage() {
           </div>
         ) : isCancelled ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center"><XCircle className="mx-auto h-12 w-12 text-red-700"/><h2 className="mt-3 text-xl font-bold text-red-900">Pesanan dibatalkan</h2><p className="mt-2 text-sm text-red-800">Ini hanya perubahan status simulasi.</p><Link href="/shop" className="mt-5 inline-flex rounded-full bg-[#93372A] px-6 py-3 text-sm font-semibold text-white">Kembali ke Toko</Link></div>
+        ) : waitingShipping ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+            <Clock3 className="mx-auto h-12 w-12 text-amber-700" />
+            <h2 className="mt-3 text-xl font-bold text-amber-950">Menunggu penetapan ongkir</h2>
+            <p className="mt-2 text-sm leading-relaxed text-amber-900">Pesananmu sudah tersimpan. Admin akan memeriksa alamat dan menetapkan ongkos kirim. Tombol pembayaran simulasi akan aktif setelah total akhir tersedia.</p>
+            <button type="button" onClick={() => void refreshOrder().catch((error) => alert(error.message))} className="mt-5 rounded-full bg-[#93372A] px-6 py-3 text-sm font-semibold text-white">Periksa pembaruan</button>
+          </div>
         ) : (
           <>
             <div className="rounded-2xl border border-[#E9DFCE] bg-white p-5 shadow-sm sm:p-7">
@@ -126,13 +142,13 @@ export default function DummyPaymentPage() {
             <div className="rounded-2xl border border-[#E9DFCE] bg-white p-5 shadow-sm sm:p-7">
               <div className="flex items-center gap-2 text-sm font-semibold"><Clock3 size={17} className="text-[#93372A]"/>Simulasi status pembayaran</div>
               <p className="mt-2 text-sm leading-relaxed text-[#77716A]">Gunakan tombol di bawah untuk menguji alur setelah pelanggan menyelesaikan pembayaran. Tombol ini hanya mengubah data demo di browser.</p>
-              <button type="button" onClick={() => updateOrderStatus("PAID")} className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#93372A] px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#76291F]"><CheckCircle2 size={17}/> Simulasikan Pembayaran Berhasil</button>
-              <button type="button" onClick={() => updateOrderStatus("CANCELLED")} className="mt-3 w-full rounded-full border border-[#E9DFCE] px-5 py-3 text-sm font-semibold text-[#77716A] transition hover:bg-[#FFFCF7]">Simulasikan Pembatalan</button>
+              <button type="button" onClick={() => void updateOrderStatus("PAID")} className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#93372A] px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#76291F]"><CheckCircle2 size={17}/> Simulasikan Pembayaran Berhasil</button>
+              <button type="button" onClick={() => void updateOrderStatus("CANCELLED")} className="mt-3 w-full rounded-full border border-[#E9DFCE] px-5 py-3 text-sm font-semibold text-[#77716A] transition hover:bg-[#FFFCF7]">Simulasikan Pembatalan</button>
             </div>
           </>
         )}
 
-        <div className="rounded-xl bg-[#F5F0E7] p-4 text-xs leading-relaxed text-[#776650]">MVP saat ini menyimpan pesanan di <code>localStorage</code>. Pada tahap integrasi berikutnya, penyimpanan ini dapat dipindahkan ke Supabase dan status pembayaran dummy diganti dengan status dari backend.</div>
+        <div className="rounded-xl bg-[#F5F0E7] p-4 text-xs leading-relaxed text-[#776650]">Pesanan dan status pembayaran simulasi tersimpan di Supabase. Pembayaran hanya dapat disimulasikan setelah admin menetapkan ongkos kirim. QR/VA pada halaman ini tetap contoh dan tidak memindahkan uang sungguhan.</div>
       </div>
     </ShopLayout>
   );
