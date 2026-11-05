@@ -268,37 +268,8 @@ async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
               </button>
             </form>
 
-            {/* REGISTER */}
-            <div className="mt-6 text-center">
-              <p className="text-sm text-[#222222]/70">
-                Belum memiliki akun?{" "}
-                <Link
-                  href="/register"
-                  className="font-bold text-[#93372A] hover:underline"
-                >
-                  Daftar sekarang
-                </Link>
-              </p>
-            </div>
-
-            {/* UMKM BANNER */}
-            <div className="mt-8 rounded-2xl border border-[#D8CDBB] bg-white/40 p-5 text-center">
-              <p className="font-quicksand text-base font-bold text-[#70291F]">
-                Punya usaha lokal?
-              </p>
-
-              <p className="mt-1 text-xs leading-relaxed text-[#222222]/70">
-                Bergabunglah dan perkenalkan produk budaya Indonesia kepada lebih
-                banyak orang.
-              </p>
-
-              <Link
-                href="/register/umkm"
-                className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold text-[#93372A] transition hover:underline"
-              >
-                Bergabung sebagai mitra UMKM
-                <span aria-hidden="true">→</span>
-              </Link>
+            <div className="mt-6 rounded-xl bg-white/50 px-4 py-3 text-center text-xs leading-relaxed text-[#806A4E]">
+              Akun demo pelanggan, UMKM, dan admin disediakan oleh administrator. Registrasi mandiri belum dibuka pada MVP.
             </div>
 
             <p className="mt-8 text-center text-[10px] tracking-[0.15em] text-[#222222]/40">
