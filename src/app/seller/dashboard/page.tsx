@@ -14,11 +14,11 @@ function previewImageUrl(value:string) {
  try {
   const url=new URL(value);
   if(url.hostname.includes("drive.google.com")) {
-   const id=url.searchParams.get("id")||url.pathname.match(/\\/file\\/d\\/([^/]+)/)?.[1];
+   const id=url.searchParams.get("id") || (url.pathname.split("/")[2]==="d" ? url.pathname.split("/")[3] : "");
    return id ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w600` : value;
   }
   if(url.hostname==="imgur.com"||url.hostname==="www.imgur.com") {
-   const id=url.pathname.split("/").filter(Boolean).pop()?.replace(/\\.[^.]+$/,"");
+   const id=(url.pathname.split("/").filter(Boolean).pop()||"").split(".")[0];
    return id ? `https://i.imgur.com/${id}.jpg` : value;
   }
   return value;
