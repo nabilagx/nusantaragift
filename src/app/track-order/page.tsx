@@ -38,8 +38,6 @@ type CustomerOrder = {
   items: OrderItem[];
 };
 
-const ORDERS_KEY = "nusantragift-orders";
-
 function formatRupiah(amount: number) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -58,7 +56,7 @@ function formatDate(date: string) {
   });
 }
 
-function getStatusInfo(status: OrderStatus) {
+function getStatusInfo(status: OrderStatus, shippingQuoteStatus?: "pending" | "quoted") {
   if (status === "PAID") {
     return {
       label: "Pembayaran berhasil",
@@ -78,8 +76,8 @@ function getStatusInfo(status: OrderStatus) {
   }
 
   return {
-    label: "Menunggu pembayaran",
-    description: "Selesaikan pembayaran untuk melanjutkan pesanan.",
+    label: shippingQuoteStatus === "quoted" ? "Menunggu pembayaran" : "Menunggu ongkos kirim",
+    description: shippingQuoteStatus === "quoted" ? "Admin telah menetapkan ongkir. Selesaikan pembayaran simulasi." : "Pesanan sudah diterima. Admin sedang menetapkan ongkos kirim.",
     className: "bg-amber-100 text-amber-800",
     icon: Clock3,
   };
@@ -289,7 +287,7 @@ export default function TrackOrderPage() {
         ) : (
           <div className="space-y-5">
             {filteredOrders.map((order) => {
-              const status = getStatusInfo(order.paymentStatus);
+              const status = getStatusInfo(order.paymentStatus, order.shippingQuoteStatus);
               const StatusIcon = status.icon;
 
               const itemCount =
