@@ -77,14 +77,14 @@ async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     const params = new URLSearchParams(window.location.search);
     const requestedNext = params.get("next");
 
-    // Hanya customer yang boleh melanjutkan ke halaman experience.
-    const isValidExperiencePath =
-      requestedNext &&
-      /^\/experience\/[a-zA-Z0-9_-]+\/?$/.test(requestedNext);
+    // Allow only known internal customer destinations to avoid open redirects.
+    const isValidCustomerPath =
+      requestedNext === "/checkout" ||
+      Boolean(requestedNext && /^\/experience\/[a-zA-Z0-9_-]+\/?$/.test(requestedNext));
 
     const destination =
-      profile.role_id === "customer" && isValidExperiencePath
-        ? requestedNext
+      profile.role_id === "customer" && isValidCustomerPath
+        ? requestedNext!
         : roleDestination;
 
     router.replace(destination);
