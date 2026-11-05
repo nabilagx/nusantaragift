@@ -32,6 +32,8 @@ type CustomerOrder = {
   totalItems?: number;
   paymentStatus: OrderStatus;
   orderStatus?: string;
+  shippingQuoteStatus?: "pending" | "quoted";
+  shippingCost?: number;
   createdAt: string;
   items: OrderItem[];
 };
@@ -177,42 +179,19 @@ export default function TrackOrderPage() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    function loadOrders() {
-      try {
-        const raw = localStorage.getItem(ORDERS_KEY);
-        const parsed = raw ? JSON.parse(raw) : [];
-
-        setOrders(
-          Array.isArray(parsed)
-            ? parsed
-                .filter(
-                  (order) =>
-                    order &&
-                    typeof order.orderId === "string" &&
-                    typeof order.total === "number"
-                )
-                .sort(
-                  (a, b) =>
-                    new Date(b.createdAt).getTime() -
-                    new Date(a.createdAt).getTime()
-                )
-            : []
-        );
-      } catch (error) {
-        console.error("Gagal membaca daftar pesanan:", error);
-        setOrders([]);
-      } finally {
-        setLoaded(true);
-      }
-    }
-
-    loadOrders();
-
-    window.addEventListener("storage", loadOrders);
-
-    return () => {
-      window.removeEventListener("storage", loadOrders);
-    };
+    let active = true;
+    fetch("/api/orders", { cache: "no-store" })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Gagal memuat pesanan.");
+        if (active) setOrders(result.orders ?? []);
+      })
+      .catch((error) => {
+        console.error("Gagal memuat daftar pesanan:", error);
+        if (active) setOrders([]);
+      })
+      .finally(() => { if (active) setLoaded(true); });
+    return () => { active = false; };
   }, []);
 
   const filteredOrders = useMemo(() => {
@@ -385,7 +364,7 @@ export default function TrackOrderPage() {
                         className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-[#93372A] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#76291F]"
                       >
                         <Package size={17} />
-                        Lanjutkan Pembayaran
+                        Lihat Status Pesanan
                       </Link>
                     )}
                   </div>
