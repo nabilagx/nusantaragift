@@ -123,7 +123,10 @@ export default function DummyPaymentPage() {
             <Clock3 className="mx-auto h-12 w-12 text-amber-700" />
             <h2 className="mt-3 text-xl font-bold text-amber-950">Menunggu penetapan ongkir</h2>
             <p className="mt-2 text-sm leading-relaxed text-amber-900">Pesananmu sudah tersimpan. Admin akan memeriksa alamat dan menetapkan ongkos kirim. Tombol pembayaran simulasi akan aktif setelah total akhir tersedia.</p>
-            <button type="button" onClick={() => void refreshOrder().catch((error) => alert(error instanceof Error ? error.message : "Gagal memuat status pesanan."))} className="mt-5 rounded-full bg-[#93372A] px-6 py-3 text-sm font-semibold text-white">Periksa pembaruan</button>
+            <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+              <button type="button" onClick={() => void refreshOrder().catch((error) => alert(error instanceof Error ? error.message : "Gagal memuat status pesanan."))} className="rounded-full bg-[#93372A] px-6 py-3 text-sm font-semibold text-white">Periksa pembaruan</button>
+              <button type="button" onClick={() => void updateOrderStatus("CANCELLED")} className="rounded-full border border-[#D9C9AF] px-6 py-3 text-sm font-semibold text-[#806A4E]">Batalkan pesanan</button>
+            </div>
           </div>
         ) : (
           <>
