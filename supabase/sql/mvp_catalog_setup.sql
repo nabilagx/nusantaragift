@@ -239,6 +239,10 @@ begin
     insert into public.order_status_history(order_id,status,note,changed_by)
       values(v_order.id,'paid','Pembayaran demo berhasil disimulasikan.',auth.uid());
   else
+    update public.products p
+      set stock = p.stock + oi.quantity, updated_at = now()
+      from public.order_items oi
+      where oi.order_id = v_order.id and oi.product_id = p.id;
     update public.orders set payment_status='failed',order_status='cancelled',cancelled_at=now(),updated_at=now()
       where id=v_order.id returning * into v_order;
     insert into public.payments(order_id,provider,amount,status,payment_method)
