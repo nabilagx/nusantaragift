@@ -4,8 +4,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
-import { getProdukById } from "@/data/produk";
+import { useEffect, useState } from "react";
+import type { ShopProduct } from "@/data/produk";
+import { getCatalogProduct } from "@/lib/catalog";
 
 type CartItem = {
   productId: string;
@@ -54,11 +55,25 @@ export default function ProductDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
 
-  const product = getProdukById(params.id);
+  const [product, setProduct] = useState<ShopProduct | undefined>();
+  const [loadingProduct, setLoadingProduct] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    getCatalogProduct(params.id)
+      .then((item) => { if (active) setProduct(item); })
+      .catch((error) => console.error("Gagal memuat detail produk:", error))
+      .finally(() => { if (active) setLoadingProduct(false); });
+    return () => { active = false; };
+  }, [params.id]);
 
   const [showPreview, setShowPreview] = useState(false);
   const [added, setAdded] = useState(false);
   const [cartError, setCartError] = useState("");
+
+  if (loadingProduct) {
+    return <main className="flex min-h-screen items-center justify-center bg-[#FFFAFA] text-sm text-[#806A4E]">Memuat detail produk...</main>;
+  }
 
   if (!product) {
     return (
