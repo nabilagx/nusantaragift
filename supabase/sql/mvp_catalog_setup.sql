@@ -255,3 +255,26 @@ $$;
 revoke all on function public.update_demo_payment(text,text) from public;
 revoke all on function public.update_demo_payment(text,text) from anon;
 grant execute on function public.update_demo_payment(text,text) to authenticated;
+
+
+-- Admin visibility for fulfillment and moderation.
+drop policy if exists "Admins read all orders" on public.orders;
+create policy "Admins read all orders" on public.orders for select to authenticated
+using (exists (select 1 from public.profiles p where p.id=(select auth.uid()) and p.role_id='admin'));
+drop policy if exists "Admins read all order items" on public.order_items;
+create policy "Admins read all order items" on public.order_items for select to authenticated
+using (exists (select 1 from public.profiles p where p.id=(select auth.uid()) and p.role_id='admin'));
+drop policy if exists "Admins read all payments" on public.payments;
+create policy "Admins read all payments" on public.payments for select to authenticated
+using (exists (select 1 from public.profiles p where p.id=(select auth.uid()) and p.role_id='admin'));
+drop policy if exists "Admins read all order history" on public.order_status_history;
+create policy "Admins read all order history" on public.order_status_history for select to authenticated
+using (exists (select 1 from public.profiles p where p.id=(select auth.uid()) and p.role_id='admin'));
+
+-- Repair seller order/history visibility policies: correlate history/order IDs correctly.
+drop policy if exists "Sellers read order rows for their products" on public.orders;
+create policy "Sellers read order rows for their products" on public.orders for select to authenticated
+using (exists (select 1 from public.order_items oi where oi.order_id=orders.id and oi.seller_id=(select auth.uid())));
+drop policy if exists "Sellers read status history for own order items" on public.order_status_history;
+create policy "Sellers read status history for own order items" on public.order_status_history for select to authenticated
+using (exists (select 1 from public.order_items oi where oi.order_id=order_status_history.order_id and oi.seller_id=(select auth.uid())));
