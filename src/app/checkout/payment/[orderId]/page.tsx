@@ -18,11 +18,9 @@ type DummyOrder = {
   paymentStatus: "PENDING" | "PAID" | "CANCELLED";
   orderStatus: string;
   createdAt: string;
-  items: { productId: string; title: string; price: string; quantity: number; subtotal: number }[];
+  items: { productId: string; title: string; price: number | string; quantity: number; subtotal: number }[];
 };
 
-const ORDERS_KEY = "nusantragift-orders";
-const CHECKOUT_KEY = "nusantragift-checkout";
 
 function formatRupiah(amount: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(amount);
