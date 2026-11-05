@@ -1,7 +1,7 @@
 "use client";
 import { useCallback,useEffect,useMemo,useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle,BadgeCheck,Check,Clock3,Package,RefreshCw,ShieldCheck,ShoppingBag,Truck,X,Users,Wallet,TrendingUp,Boxes,ArrowUpRight } from "lucide-react";
+import { AlertCircle,BadgeCheck,Check,Clock3,Package,RefreshCw,ShieldCheck,ShoppingBag,Truck,X,Users,Store,Wallet,TrendingUp,Boxes,ArrowUpRight } from "lucide-react";
 import DashboardShell,{type DashboardNavItem} from "@/components/dashboard/DashboardShell";
 
 type Product={id:string;name:string;description:string|null;price:number;stock:number;seller_name:string;category_name:string;created_at:string;metadata?:Record<string,unknown>};
@@ -22,7 +22,7 @@ export default function AdminDashboardPage(){
  const awaiting=orders.filter(o=>o.payment_status==="pending"&&o.shipping_quote_status==="pending");const paid=orders.filter(o=>o.payment_status==="paid");
  const filteredOrders=useMemo(()=>orders.filter(o=>orderFilter==="all"||(orderFilter==="shipping"&&o.shipping_quote_status==="pending"&&o.payment_status==="pending")||(orderFilter==="paid"&&o.payment_status==="paid")||(orderFilter==="cancelled"&&o.order_status==="cancelled")),[orders,orderFilter]);
  const maxRevenue=Math.max(1,...trend.map(d=>d.revenue));
- return <DashboardShell role="ADMIN" title="Marketplace Command Center" subtitle="Pusat kendali NusantaraGift — pantau performa bisnis, transaksi, mitra, dan kualitas katalog.">
+ return <DashboardShell role="ADMIN" title="Marketplace Command Center" subtitle="Pusat kendali NusantaraGift — pantau performa bisnis, transaksi, mitra, dan kualitas katalog." navItems={nav}>
  {error&&<div role="alert" className="mb-5 flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><AlertCircle size={18} className="shrink-0"/>{error}</div>}{message&&<div role="status" className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{message}</div>}
  <section id="overview" className="scroll-mt-28">
   <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[.17em] text-[#A47B43]">BUSINESS INTELLIGENCE</p><h2 className="mt-1 font-quicksand text-2xl font-bold sm:text-3xl">Ringkasan Bisnis</h2><p className="mt-1 text-sm text-[#827668]">Ikhtisar performa marketplace dari data transaksi dan katalog.</p></div><button onClick={()=>void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-[#E5DCCD] bg-white px-4 py-2.5 text-xs font-bold"><RefreshCw size={15} className={loading?"animate-spin":""}/> Perbarui dashboard</button></div>
