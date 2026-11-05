@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Clock3, Copy, CreditCard, QrCode, ShieldCheck, XCircle } from "lucide-react";
 import ShopLayout from "@/components/shop/ShopLayout";
 import { QRCodeSVG } from "qrcode.react";
@@ -26,9 +25,7 @@ function formatRupiah(amount: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(amount);
 }
 
-export default function DummyPaymentPage() {
-  const params = useParams<{ orderId: string }>();
-  const orderId = params.orderId;
+export default function DummyPaymentPage({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<DummyOrder | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
