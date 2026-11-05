@@ -226,7 +226,7 @@ export default function ProductDetailPage() {
               </p>
 
               <p className="mt-1 font-quicksand text-2xl font-bold text-[#93372A]">
-                {product.detailPrice || product.price}
+                {product.price}
               </p>
             </div>
 
