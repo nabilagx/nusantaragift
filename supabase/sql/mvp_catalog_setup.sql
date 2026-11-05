@@ -197,7 +197,7 @@ begin
         shipping_quote_status='quoted',
         shipping_quoted_at=now(),
         updated_at=now()
-    where order_number=p_order_number and payment_status='pending'
+    where order_number=p_order_number and payment_status='pending' and shipping_quote_status='pending'
     returning * into v_order;
   if not found then raise exception 'ORDER_NOT_FOUND_OR_ALREADY_PAID'; end if;
 
