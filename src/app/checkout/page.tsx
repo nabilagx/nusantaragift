@@ -8,7 +8,8 @@ import {
   ArrowLeft, ArrowRight, MapPin, ShoppingBag, User, Phone, Mail,
   MessageSquare, Gift, CreditCard, Truck, Trash2,
 } from "lucide-react";
-import { produk } from "@/data/produk";
+import type { ShopProduct } from "@/data/produk";
+import { getCatalogProducts } from "@/lib/catalog";
 import ShopLayout from "@/components/shop/ShopLayout";
 
 type CartItem = { productId: string; quantity: number };
@@ -92,7 +93,10 @@ function OrnamentGraphic({ kind, className = "" }: { kind: OrnamentKind; classNa
 export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [products, setProducts] = useState<ShopProduct[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isCatalogLoaded, setIsCatalogLoaded] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<CheckoutData>({
     recipientType: "self", name: "", phone: "", email: "", address: "", notes: "",
     giftCardType: "none", giftRecipient: "", giftSender: "", giftMessage: "", paymentMethod: "qris",
@@ -115,10 +119,19 @@ export default function CheckoutPage() {
     finally { setIsLoaded(true); }
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    getCatalogProducts()
+      .then((items) => { if (active) setProducts(items); })
+      .catch((error) => console.error("Gagal memuat katalog checkout:", error))
+      .finally(() => { if (active) setIsCatalogLoaded(true); });
+    return () => { active = false; };
+  }, []);
+
   const cartProducts = useMemo(() => cart.flatMap((cartItem) => {
-    const product = produk.find((item) => item.id === cartItem.productId);
+    const product = products.find((item) => item.id === cartItem.productId);
     return product ? [{ ...product, quantity: cartItem.quantity, subtotal: parsePrice(product.price) * cartItem.quantity }] : [];
-  }), [cart]);
+  }), [cart, products]);
   const totalItems = cartProducts.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cartProducts.reduce((sum, item) => sum + item.subtotal, 0);
   // Produk pada katalog saat ini diperlakukan sebagai paket fisik.
@@ -172,10 +185,10 @@ export default function CheckoutPage() {
     button.addEventListener("pointerup", up);
     button.addEventListener("pointercancel", up);
   }
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    const orderId = `NG-${Date.now().toString().slice(-8)}`;
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     const checkoutData = {
       orderId,
       ...form,
@@ -204,6 +217,43 @@ export default function CheckoutPage() {
     };
 
     try {
+      const giftCardDesign = form.giftCardType === "none" ? null : {
+        background: cardColor,
+        fontFamily: isLuxury ? fontFamily : fonts[0].value,
+        fontColor: isLuxury ? fontColor : getContrastText(cardColor),
+        ornaments: canUseOrnaments ? ornaments : [],
+      };
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          items: cartProducts.map((item) => ({ productId: item.id, quantity: item.quantity })),
+          giftCardDesign,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Pesanan gagal dibuat.");
+
+      const orderId = result.order.orderNumber as string;
+      const checkoutData = {
+        orderId,
+        databaseOrderId: result.order.id,
+        ...form,
+        items: cartProducts.map(({ quantity, subtotal: itemSubtotal, ...product }) => ({
+          productId: product.id, title: product.title, price: product.price, quantity, subtotal: itemSubtotal,
+        })),
+        subtotal: result.order.subtotal,
+        giftCardPrice: result.order.giftCardFee,
+        shippingCost: null,
+        total: result.order.total,
+        totalItems,
+        paymentStatus: "PENDING",
+        orderStatus: "WAITING_FOR_SHIPPING_QUOTE",
+        paymentMode: "DUMMY",
+        giftCardDesign,
+        createdAt: new Date().toISOString(),
+      };
       const existingOrders = JSON.parse(localStorage.getItem(ORDERS_KEY) || "[]");
       const orders = Array.isArray(existingOrders) ? existingOrders : [];
       orders.push(checkoutData);
@@ -212,12 +262,14 @@ export default function CheckoutPage() {
       localStorage.removeItem(CART_KEY);
       router.push(`/checkout/payment/${orderId}`);
     } catch (error) {
-      console.error("Gagal membuat pesanan dummy:", error);
-      alert("Pesanan belum berhasil dibuat. Silakan coba lagi.");
+      console.error("Gagal membuat pesanan:", error);
+      alert(error instanceof Error ? error.message : "Pesanan belum berhasil dibuat. Silakan coba lagi.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
-  if (!isLoaded) return <ShopLayout><div className="flex min-h-[70vh] items-center justify-center"><div className="text-center"><ShoppingBag className="mx-auto h-8 w-8 animate-pulse text-[#93372A]" /><p className="mt-3 text-sm text-[#777]">Memuat checkout...</p></div></div></ShopLayout>;
+  if (!isLoaded || !isCatalogLoaded) return <ShopLayout><div className="flex min-h-[70vh] items-center justify-center"><div className="text-center"><ShoppingBag className="mx-auto h-8 w-8 animate-pulse text-[#93372A]" /><p className="mt-3 text-sm text-[#777]">Memuat checkout...</p></div></div></ShopLayout>;
   if (cartProducts.length === 0) return <ShopLayout><section className="flex min-h-[65vh] flex-col items-center justify-center py-10 text-center"><div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-[#F0CDD5]/50"><ShoppingBag size={42} strokeWidth={1.4} className="text-[#93372A]" /></div><h1 className="text-2xl font-bold">Keranjangmu Kosong</h1><p className="mt-2 max-w-sm text-sm text-[#77716A]">Tambahkan kado pilihanmu terlebih dahulu sebelum melanjutkan checkout.</p><Link href="/shop" className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#93372A] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#76291F]">Jelajahi Kado <ArrowRight size={17} /></Link></section></ShopLayout>;
 
   const previewTextColor = isLuxury ? fontColor : getContrastText(cardColor);
@@ -305,7 +357,7 @@ export default function CheckoutPage() {
           <div className="mt-3 flex justify-between text-sm text-[#77716A]"><span>Gift Card</span><span className="font-semibold text-[#34291F]">{form.giftCardType === "none" ? "Tidak dipilih" : giftCardPrice === 0 ? "Gratis" : formatRupiah(giftCardPrice)}</span></div>
           {hasPhysical && <div className="mt-3 flex justify-between text-sm text-[#77716A]"><span>Ongkos kirim</span><span className="font-semibold text-[#34291F]">Dihitung berikutnya</span></div>}
           <div className="my-5 border-t border-dashed border-[#D9C9AF]" /><div className="flex items-center justify-between gap-3"><span className="font-semibold">Total sementara</span><span className="text-xl font-bold text-[#93372A]">{formatRupiah(total)}</span></div><p className="mt-2 text-[11px] leading-relaxed text-[#A99B89]">Total belum termasuk ongkos kirim.</p>
-          <button type="submit" className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#93372A] px-5 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#76291F]">Lanjut ke Pembayaran <ArrowRight size={17} /></button>
+          <button type="submit" disabled={isSubmitting} className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#93372A] px-5 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#76291F]">Lanjut ke Pembayaran <ArrowRight size={17} /></button>
           <Link href="/cart" className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-[#93372A] transition hover:underline"><ArrowLeft size={15} /> Kembali ke Keranjang</Link>
         </aside>
       </form>
