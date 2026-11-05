@@ -26,8 +26,6 @@ type CheckoutData = {
 };
 
 const CART_KEY = "nusantragift-cart";
-const CHECKOUT_KEY = "nusantragift-checkout";
-const ORDERS_KEY = "nusantragift-orders";
 const MESSAGE_LIMIT = 200;
 const giftCards = [
   { id: "plain" as const, name: "Polos", price: 0, description: "Minimalis, pilih putih atau hitam" },
@@ -229,11 +227,6 @@ export default function CheckoutPage() {
         giftCardDesign,
         createdAt: new Date().toISOString(),
       };
-      const existingOrders = JSON.parse(localStorage.getItem(ORDERS_KEY) || "[]");
-      const orders = Array.isArray(existingOrders) ? existingOrders : [];
-      orders.push(checkoutData);
-      localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-      localStorage.setItem(CHECKOUT_KEY, JSON.stringify(checkoutData));
       localStorage.removeItem(CART_KEY);
       router.push(`/checkout/payment/${orderId}`);
     } catch (error) {
