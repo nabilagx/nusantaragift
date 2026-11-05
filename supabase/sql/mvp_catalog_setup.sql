@@ -15,6 +15,7 @@ alter table public.orders
 alter table public.orders drop constraint if exists orders_shipping_quote_status_check;
 alter table public.orders add constraint orders_shipping_quote_status_check
   check (shipping_quote_status = any (array['pending','quoted']));
+alter table public.orders drop constraint if exists orders_gift_card_fee_check;
 alter table public.orders add constraint orders_gift_card_fee_check check (gift_card_fee >= 0);
 
 create index if not exists products_status_created_at_idx on public.products (status, created_at desc);
