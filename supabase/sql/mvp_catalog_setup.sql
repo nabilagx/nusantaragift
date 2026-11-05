@@ -173,3 +173,84 @@ $$;
 revoke all on function public.create_demo_order(jsonb) from public;
 revoke all on function public.create_demo_order(jsonb) from anon;
 grant execute on function public.create_demo_order(jsonb) to authenticated;
+
+
+-- Admin sets shipping after reviewing the destination. Payment is blocked until quoted.
+create or replace function public.set_order_shipping_quote(p_order_number text, p_shipping_cost numeric)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare v_order public.orders%rowtype;
+begin
+  if auth.uid() is null or not exists (
+    select 1 from public.profiles where id=auth.uid() and role_id='admin'
+  ) then raise exception 'ADMIN_ONLY'; end if;
+  if p_shipping_cost is null or p_shipping_cost < 0 then raise exception 'INVALID_SHIPPING_COST'; end if;
+
+  update public.orders
+    set shipping_cost=p_shipping_cost,
+        total_amount=subtotal + gift_card_fee + p_shipping_cost,
+        shipping_quote_status='quoted',
+        shipping_quoted_at=now(),
+        updated_at=now()
+    where order_number=p_order_number and payment_status='pending'
+    returning * into v_order;
+  if not found then raise exception 'ORDER_NOT_FOUND_OR_ALREADY_PAID'; end if;
+
+  insert into public.order_status_history(order_id,status,note,changed_by)
+  values (v_order.id,'pending_payment',
+    'Admin menetapkan ongkir ' || p_shipping_cost::text || '. Total akhir ' || v_order.total_amount::text || '.',
+    auth.uid());
+
+  return jsonb_build_object('orderNumber',v_order.order_number,'shippingCost',v_order.shipping_cost,
+    'total',v_order.total_amount,'shippingQuoteStatus',v_order.shipping_quote_status);
+end;
+$$;
+revoke all on function public.set_order_shipping_quote(text,numeric) from public;
+revoke all on function public.set_order_shipping_quote(text,numeric) from anon;
+grant execute on function public.set_order_shipping_quote(text,numeric) to authenticated;
+
+create or replace function public.update_demo_payment(p_order_number text, p_status text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare v_order public.orders%rowtype;
+begin
+  if auth.uid() is null then raise exception 'AUTH_REQUIRED'; end if;
+  if p_status not in ('PAID','CANCELLED') then raise exception 'INVALID_PAYMENT_STATUS'; end if;
+
+  select * into v_order from public.orders
+    where order_number=p_order_number and buyer_id=auth.uid()
+    for update;
+  if not found then raise exception 'ORDER_NOT_FOUND'; end if;
+  if v_order.payment_status <> 'pending' then raise exception 'ORDER_NOT_PENDING'; end if;
+
+  if p_status='PAID' then
+    if v_order.shipping_quote_status <> 'quoted' then raise exception 'SHIPPING_NOT_QUOTED'; end if;
+    update public.orders set payment_status='paid',order_status='paid',paid_at=now(),updated_at=now()
+      where id=v_order.id returning * into v_order;
+    insert into public.payments(order_id,provider,amount,status,payment_method,paid_at)
+      values(v_order.id,'demo',v_order.total_amount,'success',v_order.payment_method,now());
+    insert into public.order_status_history(order_id,status,note,changed_by)
+      values(v_order.id,'paid','Pembayaran demo berhasil disimulasikan.',auth.uid());
+  else
+    update public.orders set payment_status='failed',order_status='cancelled',cancelled_at=now(),updated_at=now()
+      where id=v_order.id returning * into v_order;
+    insert into public.payments(order_id,provider,amount,status,payment_method)
+      values(v_order.id,'demo',v_order.total_amount,'failed',v_order.payment_method);
+    insert into public.order_status_history(order_id,status,note,changed_by)
+      values(v_order.id,'cancelled','Pesanan dibatalkan melalui simulasi.',auth.uid());
+  end if;
+
+  return jsonb_build_object('orderNumber',v_order.order_number,'paymentStatus',v_order.payment_status,
+    'orderStatus',v_order.order_status,'total',v_order.total_amount,
+    'shippingCost',v_order.shipping_cost,'shippingQuoteStatus',v_order.shipping_quote_status);
+end;
+$$;
+revoke all on function public.update_demo_payment(text,text) from public;
+revoke all on function public.update_demo_payment(text,text) from anon;
+grant execute on function public.update_demo_payment(text,text) to authenticated;
