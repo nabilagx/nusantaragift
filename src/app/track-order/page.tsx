@@ -34,6 +34,8 @@ type CustomerOrder = {
   orderStatus?: string;
   shippingQuoteStatus?: "pending" | "quoted";
   shippingCost?: number;
+  courier?: string | null;
+  trackingNumber?: string | null;
   createdAt: string;
   items: OrderItem[];
 };
@@ -56,14 +58,17 @@ function formatDate(date: string) {
   });
 }
 
-function getStatusInfo(status: OrderStatus, shippingQuoteStatus?: "pending" | "quoted") {
+function getStatusInfo(status: OrderStatus, shippingQuoteStatus?: "pending" | "quoted", orderStatus?: string) {
   if (status === "PAID") {
-    return {
-      label: "Pembayaran berhasil",
-      description: "Pembayaran pesanan telah dikonfirmasi.",
-      className: "bg-green-100 text-green-800",
-      icon: CheckCircle2,
+    const states: Record<string, {label:string;description:string}> = {
+      paid: { label: "Menunggu konfirmasi UMKM", description: "Pembayaran berhasil. Mitra UMKM akan menerima dan menyiapkan pesanan." },
+      processing: { label: "Pesanan sedang disiapkan", description: "Mitra UMKM sudah menerima pesanan dan sedang menyiapkan produk." },
+      shipped: { label: "Pesanan dalam pengiriman", description: "Pesanan sudah dikirim oleh mitra UMKM." },
+      delivered: { label: "Pesanan telah diterima", description: "Pesanan telah sampai di tujuan." },
+      completed: { label: "Pesanan selesai", description: "Terima kasih sudah berbelanja di NusantaraGift." },
     };
+    const current = states[orderStatus ?? "paid"] ?? states.paid;
+    return { ...current, className: "bg-green-100 text-green-800", icon: CheckCircle2 };
   }
 
   if (status === "CANCELLED") {
@@ -83,92 +88,24 @@ function getStatusInfo(status: OrderStatus, shippingQuoteStatus?: "pending" | "q
   };
 }
 
-function OrderProgress({ status }: { status: OrderStatus }) {
+function OrderProgress({ status, shippingQuoteStatus, orderStatus }: {
+  status: OrderStatus;
+  shippingQuoteStatus?: "pending" | "quoted";
+  orderStatus?: string;
+}) {
   if (status === "CANCELLED") {
-    return (
-      <div className="mt-5 rounded-xl border border-red-100 bg-red-50 p-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-red-800">
-          <XCircle size={18} />
-          Pesanan dibatalkan
-        </div>
-        <p className="mt-1 text-xs leading-relaxed text-red-700">
-          Pesanan tidak dilanjutkan karena status pembayarannya dibatalkan.
-        </p>
-      </div>
-    );
+    return <div className="mt-5 rounded-xl border border-red-100 bg-red-50 p-4"><div className="flex items-center gap-2 text-sm font-semibold text-red-800"><XCircle size={18}/>Pesanan dibatalkan</div><p className="mt-1 text-xs leading-relaxed text-red-700">Pesanan ini telah dibatalkan.</p></div>;
   }
-
+  const rank: Record<string,number> = { pending_payment:0, paid:1, processing:2, shipped:3, delivered:4, completed:5 };
+  const current = status === "PAID" ? (rank[orderStatus ?? "paid"] ?? 1) : 0;
   const steps = [
-    {
-      title: "Pesanan dibuat",
-      description: "Pesanan berhasil dicatat.",
-      done: true,
-    },
-    {
-      title:
-        status === "PAID"
-          ? "Pembayaran berhasil"
-          : "Menunggu pembayaran",
-      description:
-        status === "PAID"
-          ? "Pembayaran telah dikonfirmasi."
-          : "Pesanan menunggu penyelesaian pembayaran.",
-      done: status === "PAID",
-      current: status === "PENDING",
-    },
+    { title:"Pesanan dibuat", description:"Pesanan berhasil dicatat.", level:0 },
+    { title:shippingQuoteStatus === "quoted" ? "Pembayaran dikonfirmasi" : "Menunggu ongkos kirim", description:shippingQuoteStatus === "quoted" ? "Admin sudah menetapkan ongkir. Selesaikan pembayaran." : "Admin sedang menghitung ongkos kirim.", level:1 },
+    { title:"Diproses UMKM", description:"Mitra menerima pesanan dan menyiapkan produk.", level:2 },
+    { title:"Dalam pengiriman", description:"Pesanan sudah diserahkan kepada kurir.", level:3 },
+    { title:"Pesanan diterima", description:"Pesanan sampai di alamat tujuan.", level:4 },
   ];
-
-  return (
-    <div className="mt-5 rounded-xl bg-[#FAF6EF] p-4">
-      <h3 className="mb-4 text-sm font-bold text-[#34291F]">
-        Progres pesanan
-      </h3>
-
-      <div className="space-y-4">
-        {steps.map((step, index) => (
-          <div key={step.title} className="flex gap-3">
-            <div className="flex flex-col items-center">
-              <div
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                  step.done
-                    ? "bg-green-100 text-green-700"
-                    : step.current
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-[#E9DFCE] text-[#9C897F]"
-                }`}
-              >
-                {step.done ? (
-                  <CheckCircle2 size={16} />
-                ) : (
-                  <Clock3 size={15} />
-                )}
-              </div>
-
-              {index !== steps.length - 1 && (
-                <div className="mt-1 h-6 w-px bg-[#D9C9AF]" />
-              )}
-            </div>
-
-            <div className="pb-1">
-              <p className="text-sm font-semibold text-[#34291F]">
-                {step.title}
-              </p>
-              <p className="mt-0.5 text-xs text-[#8B7B6C]">
-                {step.description}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {status === "PAID" && (
-        <p className="mt-4 border-t border-[#E9DFCE] pt-3 text-xs leading-relaxed text-[#8B7B6C]">
-          Informasi proses pengemasan dan pengiriman belum tersedia pada
-          versi MVP ini.
-        </p>
-      )}
-    </div>
-  );
+  return <div className="mt-5 rounded-xl bg-[#FAF6EF] p-4"><h3 className="mb-4 text-sm font-bold text-[#34291F]">Perjalanan pesanan</h3><div className="space-y-3">{steps.map((step,index)=>{const done=current>=step.level;const active=current===step.level;return <div key={step.title} className="flex gap-3"><div className="flex flex-col items-center"><div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${done?"bg-green-100 text-green-700":active?"bg-amber-100 text-amber-700":"bg-[#E9DFCE] text-[#9C897F]"}`}>{done?<CheckCircle2 size={16}/>:<Clock3 size={15}/>}</div>{index!==steps.length-1&&<div className="mt-1 h-5 w-px bg-[#D9C9AF]"/>}</div><div className="pb-1"><p className="text-sm font-semibold text-[#34291F]">{step.title}</p><p className="mt-0.5 text-xs text-[#8B7B6C]">{step.description}</p></div></div>;})}</div></div>;
 }
 
 export default function TrackOrderPage() {
@@ -287,7 +224,7 @@ export default function TrackOrderPage() {
         ) : (
           <div className="space-y-5">
             {filteredOrders.map((order) => {
-              const status = getStatusInfo(order.paymentStatus, order.shippingQuoteStatus);
+              const status = getStatusInfo(order.paymentStatus, order.shippingQuoteStatus, order.orderStatus);
               const StatusIcon = status.icon;
 
               const itemCount =
@@ -354,7 +291,8 @@ export default function TrackOrderPage() {
                       Dibuat {formatDate(order.createdAt)}
                     </p>
 
-                    <OrderProgress status={order.paymentStatus} />
+                    <OrderProgress status={order.paymentStatus} shippingQuoteStatus={order.shippingQuoteStatus} orderStatus={order.orderStatus} />
+                    {order.courier && order.trackingNumber && <div className="mt-3 rounded-xl border border-[#E9DFCE] bg-white p-3 text-xs"><p className="font-bold text-[#34291F]">Informasi pengiriman</p><p className="mt-1 text-[#776650]">Kurir: {order.courier}</p><p className="mt-1 text-[#776650]">Nomor resi: <strong className="text-[#93372A]">{order.trackingNumber}</strong></p></div>}
 
                     {order.paymentStatus === "PENDING" && (
                       <Link
@@ -372,11 +310,7 @@ export default function TrackOrderPage() {
           </div>
         )}
 
-        <p className="mt-6 rounded-xl bg-[#F5F0E7] p-4 text-xs leading-relaxed text-[#776650]">
-          Data pesanan pada MVP ini disimpan di browser menggunakan{" "}
-          <code>localStorage</code>. Artinya, daftar pesanan hanya tersedia
-          pada perangkat dan browser tempat pesanan dibuat.
-        </p>
+        <p className="mt-6 rounded-xl bg-[#F5F0E7] p-4 text-xs leading-relaxed text-[#776650]">Data pesanan diambil langsung dari akunmu dan tersimpan di database NusantaraGift.</p>
       </section>
     </ShopLayout>
   );
