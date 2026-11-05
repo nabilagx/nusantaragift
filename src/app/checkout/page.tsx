@@ -134,8 +134,6 @@ export default function CheckoutPage() {
   }), [cart, products]);
   const totalItems = cartProducts.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cartProducts.reduce((sum, item) => sum + item.subtotal, 0);
-  // Produk pada katalog saat ini diperlakukan sebagai paket fisik.
-  const hasPhysical = cartProducts.length > 0;
   const selectedGiftCard = giftCards.find((card) => card.id === form.giftCardType);
   const giftCardPrice = selectedGiftCard?.price ?? 0;
   const total = subtotal + giftCardPrice;
@@ -334,7 +332,7 @@ export default function CheckoutPage() {
           <div className="mt-3 flex justify-between text-sm text-[#77716A]"><span>Gift Card</span><span className="font-semibold text-[#34291F]">{form.giftCardType === "none" ? "Tidak dipilih" : giftCardPrice === 0 ? "Gratis" : formatRupiah(giftCardPrice)}</span></div>
           {hasPhysical && <div className="mt-3 flex justify-between text-sm text-[#77716A]"><span>Ongkos kirim</span><span className="font-semibold text-[#34291F]">Dihitung berikutnya</span></div>}
           <div className="my-5 border-t border-dashed border-[#D9C9AF]" /><div className="flex items-center justify-between gap-3"><span className="font-semibold">Total sementara</span><span className="text-xl font-bold text-[#93372A]">{formatRupiah(total)}</span></div><p className="mt-2 text-[11px] leading-relaxed text-[#A99B89]">Total belum termasuk ongkos kirim.</p>
-          <button type="submit" disabled={isSubmitting} className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#93372A] px-5 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#76291F]">Lanjut ke Pembayaran <ArrowRight size={17} /></button>
+          <button type="submit" disabled={isSubmitting} className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#93372A] px-5 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#76291F]">{isSubmitting ? "Membuat Pesanan..." : "Lanjut ke Pembayaran"} <ArrowRight size={17} /></button>
           <Link href="/cart" className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-[#93372A] transition hover:underline"><ArrowLeft size={15} /> Kembali ke Keranjang</Link>
         </aside>
       </form>
