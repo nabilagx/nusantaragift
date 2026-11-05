@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
+  RefreshCw,
   Package,
   Search,
   ShoppingBag,
@@ -112,34 +113,42 @@ export default function TrackOrderPage() {
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [search, setSearch] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [activeFilter, setActiveFilter] = useState("all");
 
-  useEffect(() => {
-    let active = true;
-    fetch("/api/orders", { cache: "no-store" })
-      .then(async (response) => {
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Gagal memuat pesanan.");
-        if (active) setOrders(result.orders ?? []);
-      })
-      .catch((error) => {
-        console.error("Gagal memuat daftar pesanan:", error);
-        if (active) setOrders([]);
-      })
-      .finally(() => { if (active) setLoaded(true); });
-    return () => { active = false; };
-  }, []);
+  async function loadOrders() {
+    setRefreshing(true);
+    setLoadError("");
+    try {
+      const response = await fetch("/api/orders", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Gagal memuat pesanan.");
+      setOrders(result.orders ?? []);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Gagal memuat pesanan.");
+    } finally {
+      setLoaded(true);
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => { void loadOrders(); }, []);
 
   const filteredOrders = useMemo(() => {
     const keyword = search.trim().toLowerCase();
-
-    if (!keyword) return orders;
-
-    return orders.filter(
-      (order) =>
-        order.orderId.toLowerCase().includes(keyword) ||
-        (order.name || "").toLowerCase().includes(keyword)
-    );
-  }, [orders, search]);
+    return orders.filter((order) => {
+      const matchesSearch = !keyword || order.orderId.toLowerCase().includes(keyword) || (order.name || "").toLowerCase().includes(keyword);
+      const status = order.orderStatus ?? "";
+      const matchesFilter = activeFilter === "all" ||
+        (activeFilter === "waiting" && order.paymentStatus === "PENDING") ||
+        (activeFilter === "processing" && status === "processing") ||
+        (activeFilter === "shipped" && status === "shipped") ||
+        (activeFilter === "completed" && ["delivered", "completed"].includes(status)) ||
+        (activeFilter === "cancelled" && (order.paymentStatus === "CANCELLED" || status === "cancelled"));
+      return matchesSearch && matchesFilter;
+    });
+  }, [orders, search, activeFilter]);
 
   if (!loaded) {
     return (
@@ -173,11 +182,13 @@ export default function TrackOrderPage() {
       </header>
 
       <section className="mx-auto max-w-2xl pb-12">
-        <div className="mb-6">
-          <p className="text-sm leading-relaxed text-[#77716A]">
-            Pantau status pesanan dan pembayaranmu di sini.
-          </p>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm leading-relaxed text-[#77716A]">Pantau status pesanan dan pembayaranmu di sini.</p>
+          <button onClick={() => void loadOrders()} disabled={refreshing} className="inline-flex items-center gap-2 rounded-full border border-[#E9DFCE] bg-white px-4 py-2.5 text-xs font-bold text-[#93372A] shadow-sm disabled:opacity-60">
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Memperbarui..." : "Periksa pembaruan"}
+          </button>
         </div>
+        {loadError && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{loadError}</div>}
 
         <div className="mb-6 flex items-center gap-3 rounded-2xl border border-[#E9DFCE] bg-white px-4 py-3 shadow-sm">
           <Search size={19} className="shrink-0 text-[#9C897F]" />
@@ -189,6 +200,8 @@ export default function TrackOrderPage() {
             className="w-full bg-transparent text-sm text-[#34291F] outline-none placeholder:text-[#B5A89A]"
           />
         </div>
+
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-1">{[{id:"all",label:"Semua"},{id:"waiting",label:"Menunggu"},{id:"processing",label:"Diproses"},{id:"shipped",label:"Dikirim"},{id:"completed",label:"Selesai"},{id:"cancelled",label:"Dibatalkan"}].map(tab => <button key={tab.id} onClick={() => setActiveFilter(tab.id)} className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition ${activeFilter===tab.id?"bg-[#93372A] text-white":"border border-[#E9DFCE] bg-white text-[#776650]"}`}>{tab.label}</button>)}</div>
 
         {orders.length === 0 ? (
           <div className="rounded-2xl border border-[#E9DFCE] bg-white px-6 py-12 text-center shadow-sm">
