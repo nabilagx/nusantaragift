@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -22,6 +22,14 @@ export default function DashboardShell({ role, title, subtitle, navItems, childr
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [currentHash, setCurrentHash] = useState("");
+
+  useEffect(() => {
+    const syncHash = () => setCurrentHash(window.location.hash);
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
 
   async function logout() {
     if (loggingOut) return;
@@ -36,7 +44,11 @@ export default function DashboardShell({ role, title, subtitle, navItems, childr
     }
   }
 
-  const active = (href: string) => href.split("#")[0] === pathname;
+  const active = (href: string) => {
+    const [path, hash] = href.split("#");
+    if (path !== pathname) return false;
+    return hash ? currentHash === `#${hash}` : !currentHash;
+  };
 
   return (
     <div className="min-h-dvh bg-[#F5F1E9] text-[#29251F]">
