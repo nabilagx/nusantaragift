@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Heart, ArrowLeft, ArrowRight, ShoppingBag, Trash2 } from "lucide-react";
@@ -63,7 +62,7 @@ export default function FavoritePage() {
       {favoriteProducts.length === 0 ? (
         <section className="flex min-h-[65vh] flex-col items-center justify-center py-8 text-center">
           <div className="relative mb-5 aspect-square w-full max-w-[340px] sm:max-w-[400px]">
-            <Image src="/images/empty-state/detective.png" alt="Ilustrasi detektif sedang mencari kado favorit" fill priority className="object-contain" sizes="(max-width: 640px) 85vw, 400px" />
+            <img src="/images/empty-state/detective.png" alt="Ilustrasi detektif sedang mencari kado favorit" className="h-full w-full object-contain" />
           </div>
           <div className="mx-auto max-w-md">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#93372A]">Misi pencarian dimulai!</p>
@@ -87,7 +86,7 @@ export default function FavoritePage() {
                   <div className="relative flex aspect-[4/3] items-center justify-center p-5" style={{ backgroundColor: item.cardColor || "#E6DBBC" }}>
                     {item.image ? (
                       <div className="relative h-full w-full">
-                        <Image src={item.image} alt={item.imageAlt || item.title} fill className="object-contain" sizes="(max-width: 640px) 90vw, 400px" />
+                        <img src={item.image} alt={item.imageAlt || item.title} loading="lazy" className="absolute inset-0 h-full w-full object-contain" />
                       </div>
                     ) : <ShoppingBag size={56} className="text-[#93372A]/50" />}
                   </div>
