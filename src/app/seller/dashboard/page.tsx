@@ -35,7 +35,6 @@ const nav: DashboardNavItem[] = [
 const mobileNav: DashboardNavItem[] = [
   { label: "Beranda", href: "/seller/dashboard", icon: "overview" },
   { label: "Produk", href: "/seller/products", icon: "products" },
-  { label: "Tambah", href: "/seller/products/new", icon: "add" },
   { label: "Iklan", href: "/seller/ads", icon: "ads" },
   { label: "Pesanan", href: "/seller/orders", icon: "orders" },
   { label: "Toko", href: "/seller/profile", icon: "profile" },
