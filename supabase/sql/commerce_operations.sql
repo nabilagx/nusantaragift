@@ -64,3 +64,51 @@ grant execute on function public.seller_update_order_status(text,text,text,text)
 
 -- This helper was only intended for database administration, not the Data API.
 revoke all on function public.rls_auto_enable() from public, anon, authenticated;
+
+
+-- Seller catalog lifecycle and administrator activity alerts.
+drop policy if exists "Sellers can update own products" on public.products;
+create policy "Sellers can update own products"
+on public.products for update to authenticated
+using (
+  seller_id = (select auth.uid())
+  and exists (select 1 from public.profiles p where p.id=(select auth.uid()) and p.role_id='umkm')
+)
+with check (
+  seller_id = (select auth.uid())
+  and status in ('draft','pending_review','rejected','active','archived')
+  and exists (
+    select 1 from public.profiles p
+    join public.seller_profiles sp on sp.user_id=p.id
+    where p.id=(select auth.uid()) and p.role_id='umkm' and sp.status='approved'
+  )
+);
+
+create or replace function public.notify_admin_product_archived()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if old.status is distinct from 'archived'
+     and new.status = 'archived'
+     and exists (select 1 from public.profiles p where p.id=auth.uid() and p.role_id='umkm') then
+    insert into public.notifications (user_id,title,message,type,related_order_id)
+    select p.id,'Produk diarsipkan oleh UMKM',
+      format('%s mengarsipkan produk "%s" (ID: %s).',coalesce(sp.business_name,'Mitra UMKM'),new.name,new.id),
+      'product_archived',new.id::text
+    from public.profiles p
+    left join public.seller_profiles sp on sp.user_id=new.seller_id
+    where p.role_id='admin';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.notify_admin_product_archived() from public,anon,authenticated;
+drop trigger if exists trg_notify_admin_product_archived on public.products;
+create trigger trg_notify_admin_product_archived
+after update of status on public.products
+for each row execute function public.notify_admin_product_archived();
+create index if not exists notifications_admin_unread_created_idx
+on public.notifications(user_id,is_read,created_at desc);
