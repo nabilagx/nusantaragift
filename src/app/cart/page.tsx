@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -13,7 +12,8 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { produk } from "@/data/produk";
+import type { ShopProduct } from "@/data/produk";
+import { getCatalogProducts } from "@/lib/catalog";
 import ShopLayout from "@/components/shop/ShopLayout";
 import { useToast } from "@/components/ui/ToastProvider";
 
@@ -38,7 +38,9 @@ function parsePrice(price: string) {
 
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [products, setProducts] = useState<ShopProduct[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isCatalogLoaded, setIsCatalogLoaded] = useState(false);
 
   const { showToast } = useToast();
 
@@ -68,6 +70,15 @@ export default function CartPage() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    getCatalogProducts()
+      .then((items) => { if (active) setProducts(items); })
+      .catch((error) => console.error("Gagal memuat katalog keranjang:", error))
+      .finally(() => { if (active) setIsCatalogLoaded(true); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     if (!isLoaded) return;
 
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
@@ -76,7 +87,7 @@ export default function CartPage() {
   const cartProducts = useMemo(() => {
     return cart
       .map((cartItem) => {
-        const product = produk.find(
+        const product = products.find(
           (item) => item.id === cartItem.productId
         );
 
@@ -89,7 +100,7 @@ export default function CartPage() {
         };
       })
       .filter((item) => item !== null);
-  }, [cart]);
+  }, [cart, products]);
 
   const totalItems = cartProducts.reduce(
     (total, item) => total + item.quantity,
@@ -130,7 +141,7 @@ export default function CartPage() {
     }
   }
 
-  if (!isLoaded) {
+  if (!isLoaded || !isCatalogLoaded) {
     return (
       <ShopLayout>
         <div className="flex min-h-[70vh] items-center justify-center">
@@ -232,12 +243,11 @@ export default function CartPage() {
                     }}
                   >
                     {item.image ? (
-                      <Image
+                      <img
                         src={item.image}
                         alt={item.imageAlt || item.title}
-                        fill
-                        className="object-contain p-3"
-                        sizes="144px"
+                        loading="lazy"
+                        className="absolute inset-0 h-full w-full object-contain p-3"
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center">

@@ -8,8 +8,6 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = createClient();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -23,6 +21,12 @@ async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
   setErrorMessage("");
 
   try {
+    const supabase = createClient();
+
+    // Remove any previous demo account session before switching to another account.
+    const { error: previousSessionError } = await supabase.auth.signOut({ scope: "local" });
+    if (previousSessionError) throw previousSessionError;
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
@@ -78,14 +82,14 @@ async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     const params = new URLSearchParams(window.location.search);
     const requestedNext = params.get("next");
 
-    // Hanya customer yang boleh melanjutkan ke halaman experience.
-    const isValidExperiencePath =
-      requestedNext &&
-      /^\/experience\/[a-zA-Z0-9_-]+\/?$/.test(requestedNext);
+    // Allow only known internal customer destinations to avoid open redirects.
+    const isValidCustomerPath =
+      requestedNext === "/checkout" ||
+      Boolean(requestedNext && /^\/experience\/[a-zA-Z0-9_-]+\/?$/.test(requestedNext));
 
     const destination =
-      profile.role_id === "customer" && isValidExperiencePath
-        ? requestedNext
+      profile.role_id === "customer" && isValidCustomerPath
+        ? requestedNext!
         : roleDestination;
 
     router.replace(destination);
@@ -268,37 +272,8 @@ async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
               </button>
             </form>
 
-            {/* REGISTER */}
-            <div className="mt-6 text-center">
-              <p className="text-sm text-[#222222]/70">
-                Belum memiliki akun?{" "}
-                <Link
-                  href="/register"
-                  className="font-bold text-[#93372A] hover:underline"
-                >
-                  Daftar sekarang
-                </Link>
-              </p>
-            </div>
-
-            {/* UMKM BANNER */}
-            <div className="mt-8 rounded-2xl border border-[#D8CDBB] bg-white/40 p-5 text-center">
-              <p className="font-quicksand text-base font-bold text-[#70291F]">
-                Punya usaha lokal?
-              </p>
-
-              <p className="mt-1 text-xs leading-relaxed text-[#222222]/70">
-                Bergabunglah dan perkenalkan produk budaya Indonesia kepada lebih
-                banyak orang.
-              </p>
-
-              <Link
-                href="/register/umkm"
-                className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold text-[#93372A] transition hover:underline"
-              >
-                Bergabung sebagai mitra UMKM
-                <span aria-hidden="true">→</span>
-              </Link>
+            <div className="mt-6 rounded-xl bg-white/50 px-4 py-3 text-center text-xs leading-relaxed text-[#806A4E]">
+              Akun demo pelanggan, UMKM, dan admin disediakan oleh administrator. Registrasi mandiri belum dibuka pada MVP.
             </div>
 
             <p className="mt-8 text-center text-[10px] tracking-[0.15em] text-[#222222]/40">

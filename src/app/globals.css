@@ -23,6 +23,7 @@
 
   --font-sans: var(--font-poppins);
   --font-quicksand: var(--font-quicksand);
+  --font-display: var(--font-quicksand);
 }
 
 * {
@@ -49,6 +50,20 @@ textarea {
 
 button {
   cursor: pointer;
+}
+
+.dashboard-shell {
+  font-family: var(--font-poppins), sans-serif;
+}
+
+.dashboard-shell [class~="text-[8px]"] { font-size: 10px !important; }
+.dashboard-shell [class~="text-[9px]"] { font-size: 11px !important; }
+.dashboard-shell [class~="text-[10px]"] { font-size: 12px !important; }
+.dashboard-shell [class~="text-[11px]"] { font-size: 13px !important; }
+
+.dashboard-shell [class*="font-display"] {
+  font-family: var(--font-quicksand), sans-serif;
+  font-weight: 700;
 }
 
 /* Splash loading animation */
