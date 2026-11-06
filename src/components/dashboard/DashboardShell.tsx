@@ -5,7 +5,7 @@ import { useState, type ComponentType } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity, BarChart3, Bell, Boxes, ClipboardList, FileText, Gift,
+  Activity, BarChart3, Bell, Boxes, ClipboardList, FileText, Gift, Megaphone,
   LayoutDashboard, LogOut, Package, PackagePlus, Settings, ShieldCheck,
   Store, Users, UserRound, CircleHelp, BadgeCheck, Wallet, Menu, X as CloseIcon,
 } from "lucide-react";
@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export type DashboardIcon =
   | "overview" | "products" | "add" | "orders" | "analytics" | "profile" | "help"
-  | "verification" | "curation" | "reports" | "settings" | "sellers" | "moderation";
+  | "verification" | "curation" | "reports" | "settings" | "sellers" | "moderation" | "ads";
 
 export type DashboardNavItem = { label: string; href: string; icon: DashboardIcon };
 
@@ -31,6 +31,7 @@ const icons: Record<DashboardIcon, ComponentType<{ size?: number; strokeWidth?: 
   settings: Settings,
   sellers: Users,
   moderation: Boxes,
+  ads: Megaphone,
 };
 
 export default function DashboardShell({
