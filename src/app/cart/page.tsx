@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -244,12 +243,11 @@ export default function CartPage() {
                     }}
                   >
                     {item.image ? (
-                      <Image
+                      <img
                         src={item.image}
                         alt={item.imageAlt || item.title}
-                        fill
-                        className="object-contain p-3"
-                        sizes="144px"
+                        loading="lazy"
+                        className="absolute inset-0 h-full w-full object-contain p-3"
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center">
