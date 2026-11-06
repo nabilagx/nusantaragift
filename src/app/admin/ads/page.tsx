@@ -36,6 +36,7 @@ export default function AdminAdsPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [rejecting, setRejecting] = useState<Promotion | null>(null);
+  const [moderationAction, setModerationAction] = useState<"reject" | "pause">("reject");
   const [reason, setReason] = useState("");
 
   const load = useCallback(async () => {
@@ -66,18 +67,28 @@ export default function AdminAdsPage() {
     finally { setBusy(""); }
   }
 
-  async function reject() {
+  async function submitModeration() {
     if (!rejecting) return;
+    const status = moderationAction === "pause" ? "paused" : "rejected";
     setBusy(rejecting.id); setError(""); setMessage("");
     try {
-      const response = await fetch("/api/admin/promotions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: rejecting.id, status: "rejected", note: reason }) });
+      const response = await fetch("/api/admin/promotions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: rejecting.id, status, note: reason }),
+      });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Iklan gagal ditolak.");
-      setMessage(`Banner “${rejecting.title}” ditolak. Alasan penolakan dikirim ke dashboard UMKM.`);
+      if (!response.ok) throw new Error(data.error || "Keputusan moderasi gagal disimpan.");
+      setMessage(moderationAction === "pause"
+        ? `Banner “${rejecting.title}” dijeda. Alasan dikirim ke dashboard UMKM.`
+        : `Banner “${rejecting.title}” ditolak. Alasan dikirim ke dashboard UMKM.`);
       setRejecting(null); setReason("");
       await load();
-    } catch (e) { setError(e instanceof Error ? e.message : "Iklan gagal ditolak."); }
-    finally { setBusy(""); }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Keputusan moderasi gagal disimpan.");
+    } finally {
+      setBusy("");
+    }
   }
 
   return <DashboardShell role="ADMIN" title="Kurasi Iklan" subtitle="Tinjau kualitas materi promosi sebelum ditampilkan kepada pelanggan." navItems={nav} mobileNavItems={mobileNav}>
@@ -102,16 +113,16 @@ export default function AdminAdsPage() {
           <div className="mt-4 border-t border-[#E8DFD2] pt-4"><div className="flex items-center justify-between gap-2"><p className="text-[9px] font-bold tracking-wider text-[#7A6C5E]">PRODUK DALAM BANNER ({item.products.length})</p><p className="text-[8px] text-[#9A713A]">Periksa kesesuaian visual & harga</p></div>
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">{item.products.map(product=>{const image=typeof product.metadata?.image==="string"?product.metadata.image:"";return <div key={product.id} className="flex items-center gap-3 rounded-lg border border-[#E8DFD2] bg-[#FDFAF3] p-2.5">{image?<img src={image} alt={product.name} className="h-14 w-14 rounded-lg bg-white object-cover"/>:<span className="flex h-14 w-14 items-center justify-center rounded-lg bg-[#F3EBDD]"><ImageIcon size={18} className="text-[#C79854]"/></span>}<div className="min-w-0 flex-1"><p className="truncate text-[10px] font-bold text-[#431714]">{product.name}</p><p className="mt-1 text-[9px] text-[#7A6C5E]">{money(product.price)} · Stok {product.stock}</p><p className="mt-1 text-[8px] text-[#9A713A]">Status produk: {product.status}</p></div></div>})}</div>
           </div>
-          <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-[#E8DFD2] pt-4"><button onClick={()=>{setRejecting(item);setReason("");}} className="inline-flex items-center gap-1.5 rounded-full border border-[#E6C7BD] px-4 py-2.5 text-[9px] font-bold text-[#93372A]"><XCircle size={13}/> Tolak & beri alasan</button><button disabled={busy===item.id} onClick={()=>void approve(item)} className="inline-flex items-center gap-1.5 rounded-full bg-[#431714] px-5 py-2.5 text-[9px] font-bold text-white disabled:opacity-50">{busy===item.id?"Memproses...":<><CheckCircle2 size={13}/> Setujui & tayangkan</>}</button></div>
+          <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-[#E8DFD2] pt-4"><button onClick={()=>{setRejecting(item);setModerationAction("reject");setReason("");}} className="inline-flex items-center gap-1.5 rounded-full border border-[#E6C7BD] px-4 py-2.5 text-[9px] font-bold text-[#93372A]"><XCircle size={13}/> Tolak & beri alasan</button><button disabled={busy===item.id} onClick={()=>void approve(item)} className="inline-flex items-center gap-1.5 rounded-full bg-[#431714] px-5 py-2.5 text-[9px] font-bold text-white disabled:opacity-50">{busy===item.id?"Memproses...":<><CheckCircle2 size={13}/> Setujui & tayangkan</>}</button></div>
         </div>
       </article>)}</div>}
     </section>
 
     <section className="mt-6 rounded-2xl border border-[#DCD2C1] bg-[#FDFAF3] p-4 sm:p-6">
       <div className="mb-4"><p className="text-[8px] font-bold tracking-[.15em] text-[#C79854]">AUDIT TRAIL</p><h2 className="mt-1 font-display text-2xl text-[#431714]">Riwayat moderasi</h2><p className="mt-1 text-[10px] text-[#7A6C5E]">Iklan yang ditolak atau diturunkan tetap tercatat untuk kebutuhan monitoring.</p></div>
-      {reviewed.length===0 ? <p className="py-8 text-center text-xs text-[#7A6C5E]">Belum ada riwayat moderasi.</p> : <div className="space-y-2">{reviewed.map(item=><article key={item.id} className="flex flex-wrap items-start gap-3 rounded-lg border border-[#E8DFD2] bg-white p-3"><img src={item.image_url} alt="" className="h-16 w-24 rounded-md bg-[#F3EBDD] object-cover"/><div className="min-w-0 flex-1"><p className="text-[8px] font-bold text-[#9A713A]">{item.seller_name}</p><p className="mt-1 text-[11px] font-bold text-[#431714]">{item.title}</p><p className="mt-1 text-[9px] text-[#7A6C5E]">{date(item.created_at)} · {item.product_ids.length} produk</p>{item.moderation_note && <p className="mt-2 rounded-md bg-[#F8E9E5] p-2 text-[9px] leading-4 text-[#7B2925]">Alasan: {item.moderation_note}</p>}</div><span className={`rounded-full px-2.5 py-1 text-[8px] font-bold ${item.status==="active"?"bg-[#EAF0E8] text-[#4F6E59]":item.status==="rejected"?"bg-[#F8E9E5] text-[#93372A]":"bg-[#F6EFDF] text-[#9A713A]"}`}>{item.status==="active"?"Disetujui":item.status==="rejected"?"Ditolak":"Diturunkan"}</span></article>)}</div>}
+      {reviewed.length===0 ? <p className="py-8 text-center text-xs text-[#7A6C5E]">Belum ada riwayat moderasi.</p> : <div className="space-y-2">{reviewed.map(item=><article key={item.id} className="flex flex-wrap items-start gap-3 rounded-lg border border-[#E8DFD2] bg-white p-3"><img src={item.image_url} alt="" className="h-16 w-24 rounded-md bg-[#F3EBDD] object-cover"/><div className="min-w-0 flex-1"><p className="text-[8px] font-bold text-[#9A713A]">{item.seller_name}</p><p className="mt-1 text-[11px] font-bold text-[#431714]">{item.title}</p><p className="mt-1 text-[9px] text-[#7A6C5E]">{date(item.created_at)} · {item.product_ids.length} produk</p>{item.moderation_note && <p className="mt-2 rounded-md bg-[#F8E9E5] p-2 text-[9px] leading-4 text-[#7B2925]">Alasan: {item.moderation_note}</p>}</div><span className={`rounded-full px-2.5 py-1 text-[8px] font-bold ${item.status==="active"?"bg-[#EAF0E8] text-[#4F6E59]":item.status==="rejected"?"bg-[#F8E9E5] text-[#93372A]":"bg-[#F6EFDF] text-[#9A713A]"}`}>{item.status==="active"?"Disetujui":item.status==="rejected"?"Ditolak":"Dijeda"}</span>{item.status==="active" && <button type="button" onClick={()=>{setRejecting(item);setModerationAction("pause");setReason("");}} className="ml-auto inline-flex items-center gap-1 rounded-full border border-[#E6C7BD] px-3 py-2 text-[9px] font-bold text-[#93372A]"><PauseCircle size={12}/> Jeda iklan</button>}</article>)}</div>}
     </section>
 
-    {rejecting && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#24100E]/65 p-4"><form onSubmit={e=>{e.preventDefault();void reject();}} className="w-full max-w-lg rounded-2xl border border-[#E5D6BD] bg-[#FDFAF3] p-5 shadow-2xl sm:p-7"><p className="text-[8px] font-bold tracking-[.16em] text-[#C79854]">MODERATION DECISION</p><h3 className="mt-2 font-display text-2xl text-[#431714]">Alasan penolakan</h3><p className="mt-2 text-[10px] leading-5 text-[#7A6C5E]">Tuliskan hal yang perlu diperbaiki secara spesifik. Alasan ini akan tampil di dashboard UMKM.</p><div className="mt-4 rounded-lg border border-[#E5D6BD] bg-white p-3"><p className="text-[10px] font-bold text-[#431714]">{rejecting.title}</p><p className="mt-1 text-[9px] text-[#7A6C5E]">{rejecting.seller_name}</p></div><label className="mt-4 block text-[9px] font-bold text-[#5F4D3D]">CATATAN UNTUK UMKM ({reason.length}/500)<textarea required minLength={12} maxLength={500} rows={5} value={reason} onChange={e=>setReason(e.target.value)} placeholder="Contoh: Resolusi banner terlalu rendah sehingga gambar terlihat pecah. Mohon unggah ulang dengan ukuran 1600 × 500 px dan pastikan teks mudah dibaca." className="mt-2 w-full rounded-xl border border-[#DCD2C1] bg-white p-3 text-[11px] leading-5 outline-none focus:border-[#93372A]"/></label><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={()=>setRejecting(null)} className="rounded-full border border-[#DCD2C1] px-4 py-2.5 text-[9px] font-bold text-[#7A6C5E]">Batal</button><button disabled={busy===rejecting.id||reason.trim().length<12} className="rounded-full bg-[#93372A] px-5 py-2.5 text-[9px] font-bold text-white disabled:opacity-50">{busy===rejecting.id?"Memproses...":"Kirim penolakan"}</button></div></form></div>}
+    {rejecting && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[#24100E]/65 p-4"><form onSubmit={e=>{e.preventDefault();void submitModeration();}} className="w-full max-w-lg rounded-2xl border border-[#E5D6BD] bg-[#FDFAF3] p-5 shadow-2xl sm:p-7"><p className="text-[8px] font-bold tracking-[.16em] text-[#C79854]">MODERATION DECISION</p><h3 className="mt-2 font-display text-2xl text-[#431714]">{moderationAction === "pause" ? "Jeda penayangan iklan" : "Alasan penolakan"}</h3><p className="mt-2 text-[10px] leading-5 text-[#7A6C5E]">{moderationAction === "pause" ? "Banner akan langsung disembunyikan dari Customer. Tuliskan alasan yang akan terlihat oleh UMKM." : "Tuliskan hal yang perlu diperbaiki secara spesifik. Alasan ini akan tampil di dashboard UMKM."}</p><div className="mt-4 rounded-lg border border-[#E5D6BD] bg-white p-3"><p className="text-[10px] font-bold text-[#431714]">{rejecting.title}</p><p className="mt-1 text-[9px] text-[#7A6C5E]">{rejecting.seller_name}</p></div><label className="mt-4 block text-[9px] font-bold text-[#5F4D3D]">CATATAN UNTUK UMKM ({reason.length}/500)<textarea required minLength={12} maxLength={500} rows={5} value={reason} onChange={e=>setReason(e.target.value)} placeholder={moderationAction === "pause" ? "Contoh: Materi promosi perlu ditinjau ulang karena informasi harga tidak sesuai dengan katalog produk." : "Contoh: Resolusi banner terlalu rendah sehingga gambar terlihat pecah. Mohon unggah ulang dengan ukuran 1600 × 500 px dan pastikan teks mudah dibaca."} className="mt-2 w-full rounded-xl border border-[#DCD2C1] bg-white p-3 text-[11px] leading-5 outline-none focus:border-[#93372A]"/></label><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={()=>setRejecting(null)} className="rounded-full border border-[#DCD2C1] px-4 py-2.5 text-[9px] font-bold text-[#7A6C5E]">Batal</button><button type="submit" disabled={busy===rejecting.id||reason.trim().length<12} className="rounded-full bg-[#93372A] px-5 py-2.5 text-[9px] font-bold text-white disabled:opacity-50">{busy===rejecting.id?"Memproses...":moderationAction === "pause" ? "Jeda iklan" : "Kirim penolakan"}</button></div></form></div>}
   </DashboardShell>;
 }
