@@ -22,6 +22,11 @@ async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
 
   try {
     const supabase = createClient();
+
+    // Remove any previous demo account session before switching to another account.
+    const { error: previousSessionError } = await supabase.auth.signOut({ scope: "local" });
+    if (previousSessionError) throw previousSessionError;
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
