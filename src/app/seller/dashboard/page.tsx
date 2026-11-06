@@ -23,18 +23,19 @@ type SellerOrder = {
 };
 type SellerProfile = { business_name: string; slug: string; description: string | null; status: string; created_at: string };
 const nav: DashboardNavItem[] = [
-  { label: "Ringkasan", href: "/seller/dashboard#overview", icon: "overview" },
-  { label: "Katalog Produk", href: "/seller/dashboard#products", icon: "products" },
-  { label: "Pesanan", href: "/seller/dashboard#orders", icon: "orders" },
-  { label: "Analitik Penjualan", href: "/seller/dashboard#analytics", icon: "analytics" },
-  { label: "Profil Toko", href: "/seller/dashboard#profile", icon: "profile" },
-  { label: "Pusat Bantuan", href: "/seller/dashboard#help", icon: "help" },
+  { label: "Ringkasan", href: "/seller/dashboard", icon: "overview" },
+  { label: "Katalog Produk", href: "/seller/products", icon: "products" },
+  { label: "Tambah Produk", href: "/seller/products/new", icon: "add" },
+  { label: "Pesanan", href: "/seller/orders", icon: "orders" },
+  { label: "Analitik Penjualan", href: "/seller/analytics", icon: "analytics" },
+  { label: "Profil Toko", href: "/seller/profile", icon: "profile" },
+  { label: "Pusat Bantuan", href: "/seller/help", icon: "help" },
 ];
 const mobileNav: DashboardNavItem[] = [
-  { label: "Beranda", href: "/seller/dashboard#overview", icon: "overview" },
-  { label: "Produk", href: "/seller/dashboard#products", icon: "products" },
-  { label: "Pesanan", href: "/seller/dashboard#orders", icon: "orders" },
-  { label: "Toko", href: "/seller/dashboard#profile", icon: "profile" },
+  { label: "Beranda", href: "/seller/dashboard", icon: "overview" },
+  { label: "Produk", href: "/seller/products", icon: "products" },
+  { label: "Pesanan", href: "/seller/orders", icon: "orders" },
+  { label: "Toko", href: "/seller/profile", icon: "profile" },
 ];
 const money = (v: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(v || 0));
 const date = (v: string) => new Date(v).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
@@ -82,7 +83,7 @@ function EditorialFooter() {
   </div>;
 }
 
-export default function SellerDashboardPage() {
+export default function SellerDashboardPage({ module = "overview" }: { module?: string }) {
   const router = useRouter();
   const [products, setProducts] = useState<SellerProduct[]>([]);
   const [orders, setOrders] = useState<SellerOrder[]>([]);
@@ -183,9 +184,11 @@ export default function SellerDashboardPage() {
     {error && <div role="alert" className="mb-5 flex items-start gap-3 rounded-xl border border-[#E6C7BD] bg-[#F8E9E5] p-3 text-[11px] text-[#93372A]"><AlertCircle size={16} className="shrink-0"/>{error}</div>}
     {message && <div role="status" className="mb-5 flex items-center gap-2 rounded-xl border border-[#C8D7C7] bg-[#EAF0E8] p-3 text-[11px] text-[#4F6E59]"><CheckCircle2 size={16}/>{message}</div>}
 
-    <section id="overview" className="scroll-mt-24">
+    {module === "overview" && (
+<section id="overview" className="scroll-mt-24">
+      <div className="mb-5 overflow-hidden rounded-[16px] border border-[#E7D5B8] bg-[#EAD9BE]"><div className="grid gap-4 p-5 sm:grid-cols-[1.2fr_.8fr] sm:items-center sm:px-7 sm:py-6"><div><p className="text-[8px] font-bold tracking-[.18em] text-[#95683B]">ARTISAN CAMPAIGN · NOVEMBER</p><h3 className="mt-2 font-display text-[25px] leading-tight text-[#431714] sm:text-[30px]">Kisah baik layak dirayakan.</h3><p className="mt-2 max-w-lg text-[10px] leading-5 text-[#765E48]">Siapkan koleksi terbaik untuk musim hadiah. Tampilkan cerita, foto, dan paket spesial tokomu.</p><a href="/seller/products/new" className="mt-4 inline-flex rounded-full bg-[#431714] px-4 py-2.5 text-[9px] font-bold text-white">Buat koleksi baru <ArrowRight size={13} className="ml-2"/></a></div><div className="relative hidden min-h-[132px] items-center justify-center overflow-hidden rounded-xl bg-[#D4B68F] sm:flex"><div className="absolute -right-8 -top-12 h-40 w-40 rounded-full border border-[#A77C50]/40"/><div className="absolute -left-8 -bottom-16 h-36 w-36 rounded-full border border-[#A77C50]/40"/><div className="relative text-center"><Sparkles size={26} className="mx-auto text-[#8D5C32]"/><p className="mt-3 font-display text-[19px] text-[#5A2B22]">The Artisan Edit</p><p className="mt-1 text-[8px] tracking-[.14em] text-[#8D5C32]">CURATED BY YOU</p></div></div></div></div>
       <PageIntro eyebrow="RUANG BERKARYA · NUSANTARA GIFT" title={<><span className="hidden sm:inline">Selamat datang, Artisan.</span><span className="sm:hidden">Ruang berkarya</span></>} description={<><span className="hidden sm:inline">Kendalikan karya, pesanan, dan perkembangan tokomu dari satu ruang.</span><span className="sm:hidden">Perkembangan tokomu dalam satu genggaman.</span></> }
-        action={<a href="#add-product" className="inline-flex h-10 items-center gap-2 rounded-full bg-[#431714] px-5 text-[10px] font-bold text-[#FFFDF8] transition hover:bg-[#61251E]"><PackagePlus size={14}/> Tambah produk</a>}/>
+        action={<a href="/seller/products/new" className="inline-flex h-10 items-center gap-2 rounded-full bg-[#431714] px-5 text-[10px] font-bold text-[#FFFDF8] transition hover:bg-[#61251E]"><PackagePlus size={14}/> Tambah produk</a>}/>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Stat label="PENJUALAN BULAN INI" value={loading ? "—" : money(revenue)} note={`${paid.length} transaksi lunas`} icon={Wallet}/>
         <Stat label="PESANAN AKTIF" value={loading ? "—" : orders.filter(o => !["completed", "cancelled"].includes(o.order_status)).length} note={`${newOrders.length} perlu diproses`} icon={ShoppingBag}/>
@@ -194,7 +197,7 @@ export default function SellerDashboardPage() {
       </div>
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.9fr_1fr]">
         <article className="min-h-[385px] rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5">
-          <div className="flex items-center justify-between gap-3"><h3 className="font-display text-[20px] text-[#431714]">Aktivitas terbaru</h3><a href="#orders" className="text-[9px] font-bold text-[#93372A]">Lihat semua <ArrowUpRight size={12} className="inline"/></a></div>
+          <div className="flex items-center justify-between gap-3"><h3 className="font-display text-[20px] text-[#431714]">Aktivitas terbaru</h3><a href="/seller/orders" className="text-[9px] font-bold text-[#93372A]">Lihat semua <ArrowUpRight size={12} className="inline"/></a></div>
           <div className="mt-4 hidden grid-cols-[1fr_1.2fr_.8fr_.8fr] border-y border-[#DCD2C1] py-3 text-[8px] font-bold tracking-[.12em] text-[#7A6C5E] sm:grid"><span>PESANAN</span><span>PRODUK</span><span>NILAI</span><span>STATUS</span></div>
           {loading ? <p className="py-8 text-center text-[11px] text-[#7A6C5E]">Memuat aktivitas...</p> : latestOrders.length === 0 ? <div className="py-12 text-center"><ShoppingBag size={25} className="mx-auto text-[#C7B69F]"/><p className="mt-3 text-[11px] text-[#7A6C5E]">Belum ada aktivitas pesanan.</p></div> :
             latestOrders.map(order => <div key={order.id} className="grid gap-1 border-b border-[#E8DFD2] py-3 text-[10px] sm:grid-cols-[1fr_1.2fr_.8fr_.8fr] sm:items-center sm:gap-3">
@@ -216,10 +219,12 @@ export default function SellerDashboardPage() {
       </div>
       <EditorialFooter/>
     </section>
+)}
 
-    <section id="products" className="mt-12 scroll-mt-24">
+    {module === "products" && (
+<section id="products" className="mt-12 scroll-mt-24">
       <PageIntro eyebrow="RUANG BERKARYA · KATALOG" title="Koleksi karya Anda" description="Atur produk, cerita, harga, stok, dan tampilan toko."
-        action={<a href="#add-product" className="inline-flex h-10 items-center gap-2 rounded-full bg-[#431714] px-5 text-[10px] font-bold text-[#FFFDF8]"><PackagePlus size={14}/> Tambah produk</a>}/>
+        action={<a href="/seller/products/new" className="inline-flex h-10 items-center gap-2 rounded-full bg-[#431714] px-5 text-[10px] font-bold text-[#FFFDF8]"><PackagePlus size={14}/> Tambah produk</a>}/>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         <Stat label="TOTAL PRODUK" value={loading ? "—" : products.length} note={`${activeProducts.length} aktif`} icon={Package}/>
         <Stat label="MENUNGGU KURASI" value={loading ? "—" : pendingProducts.length} note="Dalam antrean admin" icon={Clock3}/>
@@ -248,8 +253,10 @@ export default function SellerDashboardPage() {
       </div>
       <EditorialFooter/>
     </section>
+)}
 
-    <section id="add-product" className="mt-12 scroll-mt-24">
+    {module === "add-product" && (
+<section id="add-product" className="mt-12 scroll-mt-24">
       <PageIntro eyebrow="RUANG BERKARYA · PUBLIKASI" title="Ciptakan cerita baru" description="Lengkapi detail produk agar pembeli memahami nilai di balik karya."/>
       <div className="grid gap-4 xl:grid-cols-[1.8fr_1fr]">
         <form onSubmit={submit} className="rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5 sm:p-6">
@@ -275,9 +282,11 @@ export default function SellerDashboardPage() {
       </div>
       <EditorialFooter/>
     </section>
+)}
 
-    <section id="orders" className="mt-12 scroll-mt-24">
-      <PageIntro eyebrow="RUANG BERKARYA · PEMENUHAN" title="Pesanan & pemenuhan" description="Pastikan hadiah tiba dengan cerita terbaik." action={<span className="rounded-full bg-[#F3EBDD] px-4 py-2 text-[9px] font-bold text-[#93372A]">{newOrders.length} pesanan baru</span>}/>
+    {module === "orders" && (
+<section id="orders" className="mt-12 scroll-mt-24">
+      <div className="mb-5 rounded-[16px] bg-[#431714] px-5 py-5 text-white sm:px-7"><p className="text-[8px] font-bold tracking-[.16em] text-[#D8B77C]">ARTISAN ATELIER · ORDER DESK</p><h3 className="mt-2 font-display text-[23px]">Pesanan adalah cerita yang harus sampai.</h3><p className="mt-2 max-w-xl text-[10px] leading-5 text-[#E7D7C4]">Kelola pesanan baru, siapkan paket, dan perbarui nomor resi dari satu tempat.</p></div><PageIntro eyebrow="RUANG BERKARYA · PEMENUHAN" title="Pesanan & pemenuhan" description="Pastikan hadiah tiba dengan cerita terbaik." action={<span className="rounded-full bg-[#F3EBDD] px-4 py-2 text-[9px] font-bold text-[#93372A]">{newOrders.length} pesanan baru</span>}/>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         <Stat label="PESANAN BARU" value={loading ? "—" : newOrders.length} note="Perlu konfirmasi" icon={ShoppingBag}/>
         <Stat label="DIPROSES" value={loading ? "—" : processing.length} note="Sedang disiapkan" icon={PackageCheck}/>
@@ -297,8 +306,10 @@ export default function SellerDashboardPage() {
       </div>
       <EditorialFooter/>
     </section>
+)}
 
-    <section id="analytics" className="mt-12 scroll-mt-24">
+    {module === "analytics" && (
+<section id="analytics" className="mt-12 scroll-mt-24">
       <PageIntro eyebrow="RUANG BERKARYA · ANALITIK" title="Cerita di balik angka" description="Pahami performa toko dan temukan peluang pertumbuhan."/>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         <Stat label="PENDAPATAN TERCATAT" value={loading ? "—" : money(revenue)} note={`${paid.length} pesanan dibayar`} icon={Wallet}/>
@@ -322,8 +333,10 @@ export default function SellerDashboardPage() {
       </div>
       <EditorialFooter/>
     </section>
+)}
 
-    <section id="profile" className="mt-12 scroll-mt-24">
+    {module === "profile" && (
+<section id="profile" className="mt-12 scroll-mt-24">
       <PageIntro eyebrow="RUANG BERKARYA · IDENTITAS" title="Identitas sang perajin" description="Tampilkan kisah, proses, dan nilai yang membuat toko berbeda."/>
       <div className="grid gap-4 xl:grid-cols-[1.8fr_1fr]">
         <article className="rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5 sm:p-6">
@@ -340,13 +353,16 @@ export default function SellerDashboardPage() {
       </div>
       <EditorialFooter/>
     </section>
+)}
 
-    <section id="help" className="mt-12 scroll-mt-24">
+    {module === "help" && (
+<section id="help" className="mt-12 scroll-mt-24">
       <PageIntro eyebrow="RUANG BERKARYA · DUKUNGAN" title="Pusat bantuan" description="Panduan singkat untuk mengelola katalog, pesanan, dan kehadiran toko."/>
       <div className="grid gap-3 sm:grid-cols-3">
         {[{title:"Mengelola katalog",detail:"Pelajari cara menambah produk, foto, harga, dan stok.",icon:Package},{title:"Memproses pesanan",detail:"Terima pesanan yang sudah dibayar dan tambahkan nomor resi.",icon:Truck},{title:"Menjaga profil toko",detail:"Pastikan cerita artisan dan informasi toko selalu akurat.",icon:Store}].map(x=><article key={x.title} className="rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5"><x.icon size={19} className="text-[#C79854]"/><h3 className="mt-4 font-display text-[18px] text-[#431714]">{x.title}</h3><p className="mt-2 text-[10px] leading-5 text-[#7A6C5E]">{x.detail}</p></article>)}
       </div>
       <EditorialFooter/>
     </section>
+)}
   </DashboardShell>;
 }
