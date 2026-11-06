@@ -46,17 +46,30 @@ export default function DashboardShell({
   const pathname = usePathname();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   async function logout() {
     if (loggingOut) return;
     setLoggingOut(true);
+    setLogoutError("");
     try {
       const supabase = createClient();
-      await supabase.auth.signOut();
-      router.replace("/login");
-      router.refresh();
-    } finally {
+      const { error } = await supabase.auth.signOut({ scope: "local" });
+      if (error) throw error;
+
+      // Clear only browser-side shopping state; saved favorites remain tied to the account.
+      try {
+        localStorage.removeItem("nusantragift-cart");
+        localStorage.removeItem("nusantaragift-wishlist");
+      } catch {
+        // Storage may be unavailable; the Supabase session is still cleared.
+      }
+
+      window.location.replace("/login?loggedOut=1");
+    } catch (error) {
+      console.error("Gagal mengakhiri sesi:", error);
+      setLogoutError("Sesi belum berhasil diakhiri. Coba sekali lagi.");
       setLoggingOut(false);
     }
   }
@@ -92,9 +105,10 @@ export default function DashboardShell({
           <p className={`text-[11px] font-bold ${role === "ADMIN" ? "text-white" : "text-[#251E1A]"}`}>{role === "ADMIN" ? "Administrator" : "Akun artisan"}</p>
           <p className={`mt-1 text-[9px] ${role === "ADMIN" ? "text-[#C79854]" : "text-[#93372A]"}`}>{role === "ADMIN" ? "Akses penuh · Control room" : "Terverifikasi · Aktif"}</p>
           <button onClick={() => void logout()} disabled={loggingOut}
-            className="mt-4 inline-flex items-center gap-2 text-[10px] font-semibold text-[#93372A] hover:underline disabled:opacity-50">
-            <LogOut size={13} /> {loggingOut ? "Keluar..." : "Keluar akun"}
+            className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#E5C58D] bg-[#F3EBDD] px-4 text-[11px] font-bold text-[#7B2925] shadow-sm transition hover:bg-white disabled:cursor-wait disabled:opacity-60">
+            <LogOut size={15} strokeWidth={2.4} /> {loggingOut ? "Mengakhiri sesi..." : "Keluar akun"}
           </button>
+          {logoutError && <p role="alert" className="mt-2 max-w-[190px] text-[10px] font-medium text-[#F0B6A8]">{logoutError}</p>}
         </div>
       </aside>
 
@@ -105,7 +119,7 @@ export default function DashboardShell({
             <div className="flex items-center gap-2">
               <span aria-hidden="true" className={`relative ${role === "ADMIN" ? "text-[#E5C58D]" : "text-[#431714]"}`}><Bell size={19} strokeWidth={1.7}/><span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-[#93372A]"/></span><button onClick={()=>setDrawerOpen(v=>!v)} aria-label="Buka menu" className={`rounded-full border p-2 ${role === "ADMIN" ? "border-[#8B5550] text-[#F5F1E7]" : "border-[#DCD2C1] text-[#431714]"}`}><Menu size={18}/></button>
               <button onClick={() => void logout()} disabled={loggingOut} aria-label="Keluar akun"
-                className={`rounded-full p-2 disabled:opacity-50 ${role === "ADMIN" ? "text-[#E9DCCB] hover:bg-white/10" : "text-[#7A6C5E] hover:bg-[#F3EBDD]"}`}><LogOut size={16}/></button>
+                className="rounded-full border border-[#E5C58D] bg-[#93372A] p-2.5 text-white shadow-md transition hover:bg-[#76291F] disabled:cursor-wait disabled:opacity-60"><LogOut size={17} strokeWidth={2.4}/></button>
             </div>
           </div>
         </header>
