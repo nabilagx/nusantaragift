@@ -26,6 +26,7 @@ const nav: DashboardNavItem[] = [
   { label: "Ringkasan", href: "/seller/dashboard", icon: "overview" },
   { label: "Katalog Produk", href: "/seller/products", icon: "products" },
   { label: "Tambah Produk", href: "/seller/products/new", icon: "add" },
+  { label: "Iklan & Promosi", href: "/seller/ads", icon: "ads" },
   { label: "Pesanan", href: "/seller/orders", icon: "orders" },
   { label: "Analitik Penjualan", href: "/seller/analytics", icon: "analytics" },
   { label: "Profil Toko", href: "/seller/profile", icon: "profile" },
@@ -35,6 +36,7 @@ const mobileNav: DashboardNavItem[] = [
   { label: "Beranda", href: "/seller/dashboard", icon: "overview" },
   { label: "Produk", href: "/seller/products", icon: "products" },
   { label: "Tambah", href: "/seller/products/new", icon: "add" },
+  { label: "Iklan", href: "/seller/ads", icon: "ads" },
   { label: "Pesanan", href: "/seller/orders", icon: "orders" },
   { label: "Toko", href: "/seller/profile", icon: "profile" },
 ];
