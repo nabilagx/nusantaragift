@@ -33,6 +33,7 @@ const nav: DashboardNavItem[] = [
   { label: "Ringkasan", href: "/admin/dashboard", icon: "overview" },
   { label: "Verifikasi UMKM", href: "/admin/umkm", icon: "verification" },
   { label: "Kurasi Produk", href: "/admin/products", icon: "curation" },
+  { label: "Kurasi Iklan", href: "/admin/ads", icon: "ads" },
   { label: "Pesanan & Pembayaran", href: "/admin/orders", icon: "orders" },
   { label: "Laporan Komunitas", href: "/admin/reports", icon: "reports" },
   { label: "Pengaturan", href: "/admin/settings", icon: "settings" },
@@ -41,6 +42,7 @@ const mobileNav: DashboardNavItem[] = [
   { label: "Beranda", href: "/admin/dashboard", icon: "overview" },
   { label: "UMKM", href: "/admin/umkm", icon: "verification" },
   { label: "Kurasi", href: "/admin/products", icon: "curation" },
+  { label: "Iklan", href: "/admin/ads", icon: "ads" },
   { label: "Akun", href: "/admin/settings", icon: "settings" },
 ];
 const money = (n: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(n || 0));
@@ -304,7 +306,7 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
       <article className="mt-5 rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5">
         <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-[8px] font-bold tracking-[.16em] text-[#C79854]">PLATFORM CATALOG CONTROL</p><h3 className="mt-1 font-display text-[21px] text-[#431714]">Manajemen seluruh produk</h3><p className="mt-1 text-[9px] text-[#7A6C5E]">Admin dapat mengubah detail, stok, dan status arsip seluruh katalog.</p></div><div className="flex items-center gap-2"><span className="rounded-full bg-[#F3EBDD] px-3 py-2 text-[9px] font-bold text-[#93372A]">{catalog.length} produk</span><button onClick={()=>setCreatingProduct(true)} className="rounded-full bg-[#5A202A] px-4 py-2.5 text-[9px] font-bold text-white">+ Tambah produk</button></div></div>
         <div className="mt-4 space-y-3">{catalog.map(p=><div key={p.id} className="rounded-lg border border-[#E7DDCC] bg-white p-3">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-[8px] font-bold tracking-[.1em] text-[#9A713A]">{p.seller_name} · {p.category_name}</p><p className="mt-1 text-[11px] font-bold text-[#251E1A]">{p.name}</p><p className="mt-1 text-[9px] text-[#7A6C5E]">{money(p.price)} · Stok {p.stock}</p></div><span className={`rounded-full px-2.5 py-1 text-[8px] font-bold ${statusClass(p.status)}`}>{p.status==="archived"?"Diarsipkan":p.status==="active"?"Tayang":p.status==="pending_review"?"Menunggu kurasi":p.status}</span></div>
+          <div className="flex items-start gap-3"><div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-[#F3EBDD]">{typeof p.metadata?.image==="string"&&p.metadata.image?<img src={p.metadata.image} alt={p.name} className="h-full w-full object-cover"/>:<div className="flex h-full items-center justify-center text-[#C79854]"><Package size={22}/></div>}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-[8px] font-bold tracking-[.1em] text-[#9A713A]">{p.seller_name} · {p.category_name}</p><p className="mt-1 text-[11px] font-bold text-[#251E1A]">{p.name}</p><p className="mt-1 text-[9px] text-[#7A6C5E]">{money(p.price)} · Stok {p.stock}</p></div><span className={`rounded-full px-2.5 py-1 text-[8px] font-bold ${statusClass(p.status)}`}>{p.status==="archived"?"Diarsipkan":p.status==="active"?"Tayang":p.status==="pending_review"?"Menunggu kurasi":p.status}</span></div></div></div>
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#E8DFD2] pt-3"><button onClick={()=>{setEditingProduct(p);setEditValues({name:p.name,description:p.description??"",price:String(p.price),stock:String(p.stock)});}} className="rounded-full border border-[#DCD2C1] px-3 py-1.5 text-[8px] font-bold text-[#431714]">Edit detail</button><button disabled={busy===p.id||p.stock===0} onClick={()=>void manageProduct(p.id,"stock",-1)} className="h-7 w-7 rounded-full border border-[#DCD2C1] text-[12px] disabled:opacity-30">−</button><button disabled={busy===p.id} onClick={()=>void manageProduct(p.id,"stock",1)} className="h-7 w-7 rounded-full border border-[#DCD2C1] text-[12px] disabled:opacity-30">+</button><span className="text-[8px] text-[#7A6C5E]">Atur stok</span>{p.status==="archived"?<button onClick={()=>void manageProduct(p.id,"restore")} className="ml-auto rounded-full bg-[#93372A] px-3 py-1.5 text-[8px] font-bold text-white">Pulihkan</button>:<button onClick={()=>void manageProduct(p.id,"archive")} className="ml-auto rounded-full border border-[#E6C7BD] px-3 py-1.5 text-[8px] font-bold text-[#93372A]">Arsipkan</button>}</div>
         </div>)}</div>
       </article>
