@@ -72,7 +72,7 @@ export async function GET() {
       totalSellers: sellers.length, activeSellers: sellers.filter(s=>s.status==="approved").length,
     },
     trend,
-    sellers: sellers.map(s=>({name:s.business_name,slug:s.slug,description:s.description,status:s.status,created_at:s.created_at})),
+    sellers: sellers.map(s=>({user_id:s.user_id,name:s.business_name,slug:s.slug,description:s.description,status:s.status,created_at:s.created_at})),
   });
 }
 
@@ -136,4 +136,44 @@ export async function DELETE(request: Request) {
   if (error) return NextResponse.json({ error: "Produk gagal diarsipkan." }, { status: 400 });
   if (!data) return NextResponse.json({ error: "Produk tidak ditemukan." }, { status: 404 });
   return NextResponse.json({ product: data, archived: true });
+}
+
+
+export async function POST(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Silakan login." }, { status: 401 });
+  const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).single();
+  if (profile?.role_id !== "admin") return NextResponse.json({ error: "Akses khusus admin." }, { status: 403 });
+  const body = await request.json().catch(() => ({}));
+  const sellerId = typeof body.sellerId === "string" ? body.sellerId : "";
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const description = typeof body.description === "string" ? body.description.trim() : "";
+  const categorySlug = typeof body.category === "string" ? body.category : "";
+  const price = Number(body.price);
+  const stock = Number(body.stock);
+  const image = typeof body.imageUrl === "string" ? body.imageUrl.trim() : "";
+  if (!sellerId || name.length < 3 || description.length < 10 || !["cerita","rasa","budaya"].includes(categorySlug) ||
+      !Number.isSafeInteger(price) || price < 1 || !Number.isInteger(stock) || stock < 0) {
+    return NextResponse.json({ error: "Lengkapi mitra, nama, deskripsi, kategori, harga, dan stok." }, { status: 400 });
+  }
+  if (image) {
+    try { const url = new URL(image); if (!["https:","http:"].includes(url.protocol)) throw new Error(); }
+    catch { return NextResponse.json({ error: "URL gambar harus berupa HTTP atau HTTPS." }, { status: 400 }); }
+  }
+  const [{ data: seller }, { data: category }] = await Promise.all([
+    supabase.from("seller_profiles").select("user_id,status").eq("user_id", sellerId).single(),
+    supabase.from("categories").select("id").eq("slug", categorySlug).single(),
+  ]);
+  if (!seller || seller.status !== "approved") return NextResponse.json({ error: "Pilih mitra UMKM yang sudah terverifikasi." }, { status: 400 });
+  if (!category) return NextResponse.json({ error: "Kategori tidak ditemukan." }, { status: 400 });
+  const slug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") + "-" + crypto.randomUUID().slice(0,6);
+  const metadata = { region:"Indonesia", size:"1 Paket", image, imageAlt:name, summary:{type:categorySlug,format:"Produk UMKM",unlock:"Fisik"} };
+  const { data, error } = await supabase.from("products").insert({
+    seller_id:sellerId, category_id:category.id, name, slug, description, price, stock,
+    sku:"ADMIN-"+crypto.randomUUID().slice(0,8).toUpperCase(), status:"pending_review",
+    delivery_type:"physical", metadata,
+  }).select("id,name,price,stock,status").single();
+  if (error) return NextResponse.json({ error: "Produk gagal dibuat." }, { status: 400 });
+  return NextResponse.json({ product:data }, { status:201 });
 }
