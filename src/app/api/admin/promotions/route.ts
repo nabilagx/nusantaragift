@@ -32,7 +32,7 @@ export async function GET() {
   const result = (promotions ?? []).map(item => ({
     ...item,
     seller_name: sellers.get(item.seller_id) ?? "UMKM",
-    products: (item.product_ids ?? []).map(id => products.get(id)).filter(Boolean),
+    products: (item.product_ids ?? []).map((id: string) => products.get(id)).filter(Boolean),
   }));
   return NextResponse.json({ promotions: result });
 }
