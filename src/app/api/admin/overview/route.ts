@@ -12,7 +12,7 @@ export async function GET() {
   const [pendingResult, orderResult, productStatsResult, sellerResult] = await Promise.all([
     supabase.from("products").select("id,name,slug,description,price,stock,status,created_at,seller_id,category_id,metadata").eq("status", "pending_review").order("created_at", { ascending: true }),
     supabase.from("orders").select("id,order_number,recipient_name,recipient_phone,shipping_address,subtotal,gift_card_fee,shipping_cost,total_amount,order_status,payment_status,shipping_quote_status,payment_method,created_at").order("created_at", { ascending: false }).limit(500),
-    supabase.from("products").select("id,status,stock,seller_id"),
+    supabase.from("products").select("id,name,slug,description,price,stock,status,created_at,seller_id,category_id,metadata"),
     supabase.from("seller_profiles").select("user_id,business_name,slug,description,status,created_at"),
   ]);
   for (const [name, result] of [["moderasi",pendingResult],["pesanan",orderResult],["statistik produk",productStatsResult],["mitra",sellerResult]] as const) {
@@ -25,8 +25,8 @@ export async function GET() {
   const orders = orderResult.data ?? [];
   const allProducts = productStatsResult.data ?? [];
   const sellers = sellerResult.data ?? [];
-  const sellerIds = [...new Set(pending.map(p => p.seller_id).filter(Boolean))];
-  const categoryIds = [...new Set(pending.map(p => p.category_id).filter(Boolean))];
+  const sellerIds = [...new Set(allProducts.map(p => p.seller_id).filter(Boolean))];
+  const categoryIds = [...new Set(allProducts.map(p => p.category_id).filter(Boolean))];
   const orderIds = orders.map(o => o.id);
   const [sellerNames, categoryNames, itemResult] = await Promise.all([
     sellerIds.length ? supabase.from("seller_profiles").select("user_id,business_name").in("user_id", sellerIds) : Promise.resolve({ data: [], error: null }),
@@ -56,6 +56,7 @@ export async function GET() {
   });
   return NextResponse.json({
     products: pending.map(p => ({...p,price:Number(p.price),seller_name:sellerMap.get(p.seller_id) ?? "Mitra UMKM",category_name:categoryMap.get(p.category_id) ?? "Tanpa kategori"})),
+    catalog: allProducts.map(p => ({...p,price:Number(p.price),seller_name:sellerMap.get(p.seller_id) ?? "Mitra UMKM",category_name:categoryMap.get(p.category_id) ?? "Tanpa kategori"})),
     orders: normalizedOrders,
     metrics: {
       totalOrders: normalizedOrders.length, paidOrders: paid.length,
@@ -69,4 +70,61 @@ export async function GET() {
     trend,
     sellers: sellers.map(s=>({name:s.business_name,slug:s.slug,description:s.description,status:s.status,created_at:s.created_at})),
   });
+}
+
+
+export async function PATCH(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Silakan login." }, { status: 401 });
+  const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).single();
+  if (profile?.role_id !== "admin") return NextResponse.json({ error: "Akses khusus admin." }, { status: 403 });
+  const body = await request.json().catch(() => ({}));
+  const id = typeof body.id === "string" ? body.id : "";
+  const action = typeof body.action === "string" ? body.action : "update";
+  if (!id) return NextResponse.json({ error: "ID produk tidak valid." }, { status: 400 });
+
+  const { data: current } = await supabase.from("products").select("id,name,status,stock").eq("id", id).maybeSingle();
+  if (!current) return NextResponse.json({ error: "Produk tidak ditemukan." }, { status: 404 });
+
+  if (action === "stock") {
+    const delta = Number(body.delta);
+    if (!Number.isInteger(delta) || ![-1, 1].includes(delta) || Number(current.stock) + delta < 0)
+      return NextResponse.json({ error: "Perubahan stok tidak valid." }, { status: 400 });
+    const { data, error } = await supabase.from("products").update({ stock: Number(current.stock) + delta, updated_at: new Date().toISOString() }).eq("id", id).select("id,name,stock,status").single();
+    if (error) return NextResponse.json({ error: "Stok gagal diperbarui." }, { status: 400 });
+    return NextResponse.json({ product: data });
+  }
+  if (action === "archive" || action === "restore") {
+    const status = action === "archive" ? "archived" : "pending_review";
+    const { data, error } = await supabase.from("products").update({ status, updated_at: new Date().toISOString() }).eq("id", id).select("id,name,status").single();
+    if (error) return NextResponse.json({ error: "Status produk gagal diperbarui." }, { status: 400 });
+    return NextResponse.json({ product: data });
+  }
+
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const description = typeof body.description === "string" ? body.description.trim() : "";
+  const price = Number(body.price);
+  const stock = Number(body.stock);
+  if (name.length < 3 || description.length < 10 || !Number.isSafeInteger(price) || price < 1 || !Number.isInteger(stock) || stock < 0)
+    return NextResponse.json({ error: "Nama, deskripsi, harga, atau stok tidak valid." }, { status: 400 });
+  const { data, error } = await supabase.from("products").update({ name, description, price, stock, updated_at: new Date().toISOString() })
+    .eq("id", id).select("id,name,price,stock,status").single();
+  if (error) return NextResponse.json({ error: "Perubahan produk gagal disimpan." }, { status: 400 });
+  return NextResponse.json({ product: data });
+}
+
+export async function DELETE(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Silakan login." }, { status: 401 });
+  const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).single();
+  if (profile?.role_id !== "admin") return NextResponse.json({ error: "Akses khusus admin." }, { status: 403 });
+  const body = await request.json().catch(() => ({}));
+  const id = typeof body.id === "string" ? body.id : "";
+  if (!id) return NextResponse.json({ error: "ID produk tidak valid." }, { status: 400 });
+  const { data, error } = await supabase.from("products").update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", id).select("id,name,status").maybeSingle();
+  if (error) return NextResponse.json({ error: "Produk gagal diarsipkan." }, { status: 400 });
+  if (!data) return NextResponse.json({ error: "Produk tidak ditemukan." }, { status: 404 });
+  return NextResponse.json({ product: data, archived: true });
 }
