@@ -39,7 +39,7 @@ export default function ShopBannerCarousel() {
   const nextSlide = () => setActiveSlide((current) => (current + 1) % slides.length);
 
   return <section className="relative mt-2 overflow-hidden rounded-[22px] shadow-[0_10px_28px_rgba(58,30,18,.12)]">
-    <div className="relative flex min-h-[190px] items-center overflow-hidden bg-[#431714] text-white sm:min-h-[230px]">
+    <div className="relative flex h-[180px] items-center overflow-hidden bg-[#431714] text-white sm:h-[250px]">
       {isPromotion ? <>
         <img src={(slide as Promotion).image_url} alt="" className="absolute inset-0 h-full w-full object-cover"/>
         <div className="absolute inset-0 bg-gradient-to-r from-[#24100E]/95 via-[#24100E]/75 to-[#24100E]/10"/>
