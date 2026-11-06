@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import {
   AlertCircle, ArrowRight, ArrowUpRight, BadgeCheck, Check, Clock3, FileText,
   Package, RefreshCw, ShieldCheck, ShoppingBag, Store, Truck, Users, Wallet,
@@ -104,6 +105,26 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
     finally { setLoading(false); }
   }, [router]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null;
+    let cancelled = false;
+    const supabase = createClient();
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user || cancelled) return;
+      channel = supabase.channel("admin-activity-notifications")
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+          (payload) => {
+            const notice = payload.new as AdminNotice;
+            setNotices(current => [notice, ...current.filter(item => item.id !== notice.id)].slice(0, 10));
+          })
+        .subscribe();
+    });
+    return () => {
+      cancelled = true;
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, []);
+
 
   async function review(id: string, status: "active" | "rejected") {
     setBusy(id); setError(""); setMessage("");
