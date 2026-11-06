@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { produk } from "@/data/produk";
 import ShopLayout from "@/components/shop/ShopLayout";
@@ -12,7 +11,6 @@ type Tab = "Koleksi" | "Komunitas" | "Ulasan";
 
 export default function ProfilePage() {
   const [tab, setTab] = useState<Tab>("Koleksi");
-  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -47,10 +45,22 @@ export default function ProfilePage() {
   }, [supabase]);
 
   const handleSignOut = async () => {
+    if (signingOut) return;
     setSigningOut(true);
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    try {
+      const { error } = await supabase.auth.signOut({ scope: "local" });
+      if (error) throw error;
+      try {
+        localStorage.removeItem("nusantragift-cart");
+      } catch {
+        // Storage may be unavailable; the auth session is still cleared.
+      }
+      window.location.replace("/login?loggedOut=1");
+    } catch (error) {
+      console.error("Gagal mengakhiri sesi Customer:", error);
+      setSigningOut(false);
+      window.alert("Sesi belum berhasil diakhiri. Silakan coba sekali lagi.");
+    }
   };
 
   const collection = produk.slice(0, 6);
