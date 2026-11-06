@@ -84,6 +84,11 @@ export async function PATCH(request: Request) {
   const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).single();
   if (profile?.role_id !== "admin") return NextResponse.json({ error: "Akses khusus admin." }, { status: 403 });
   const body = await request.json().catch(() => ({}));
+  if (body.action === "mark_notification_read" && typeof body.notificationId === "string") {
+    const { data, error } = await supabase.from("notifications").update({ is_read: true }).eq("id", body.notificationId).eq("user_id", user.id).select("id").maybeSingle();
+    if (error || !data) return NextResponse.json({ error: "Notifikasi gagal diperbarui." }, { status: 400 });
+    return NextResponse.json({ success: true });
+  }
   const id = typeof body.id === "string" ? body.id : "";
   const action = typeof body.action === "string" ? body.action : "update";
   if (!id) return NextResponse.json({ error: "ID produk tidak valid." }, { status: 400 });
