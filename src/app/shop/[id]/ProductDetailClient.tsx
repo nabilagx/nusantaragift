@@ -238,6 +238,12 @@ export default function ProductDetailPage({ id }: { id: string }) {
                 {product.size}
               </p>
             </div>
+
+            <div className="absolute left-5 top-5 rounded-full border border-white/70 bg-white/90 px-4 py-2 text-xs font-bold shadow-sm sm:left-8 sm:top-8">
+              <span className={product.stock > 0 ? "text-[#47704C]" : "text-[#A13D32]"}>
+                {product.stock > 0 ? `Stok tersedia: ${product.stock}` : "Stok habis"}
+              </span>
+            </div>
           </div>
 
           {/* Summary */}
@@ -304,7 +310,8 @@ export default function ProductDetailPage({ id }: { id: string }) {
           <button
             type="button"
             onClick={handleAddToCart}
-            className="flex min-h-[54px] flex-[1.3] items-center justify-center gap-2 rounded-full bg-[#93372A] px-4 font-quicksand text-sm font-bold text-white shadow-md transition hover:bg-[#7D2E24] sm:text-base"
+            disabled={product.stock <= 0}
+            className="flex min-h-[54px] flex-[1.3] items-center justify-center gap-2 rounded-full bg-[#93372A] px-4 font-quicksand text-sm font-bold text-white shadow-md transition hover:bg-[#7D2E24] disabled:cursor-not-allowed disabled:bg-[#A99A8B] sm:text-base"
           >
             {added ? (
               <>
