@@ -9,6 +9,9 @@ export async function GET() {
   if (profileError) return NextResponse.json({ error: "Gagal memverifikasi role admin." }, { status: 500 });
   if (profile?.role_id !== "admin") return NextResponse.json({ error: "Akun ini bukan administrator." }, { status: 403 });
 
+  const { data: notifications, error: notificationError } = await supabase.from("notifications").select("id,title,message,type,is_read,created_at").eq("user_id", user.id).eq("is_read", false).order("created_at", { ascending: false }).limit(10);
+  if (notificationError) return NextResponse.json({ error: "Gagal memuat notifikasi admin." }, { status: 500 });
+
   const [pendingResult, orderResult, productStatsResult, sellerResult] = await Promise.all([
     supabase.from("products").select("id,name,slug,description,price,stock,status,created_at,seller_id,category_id,metadata").eq("status", "pending_review").order("created_at", { ascending: true }),
     supabase.from("orders").select("id,order_number,recipient_name,recipient_phone,shipping_address,subtotal,gift_card_fee,shipping_cost,total_amount,order_status,payment_status,shipping_quote_status,payment_method,created_at").order("created_at", { ascending: false }).limit(500),
@@ -55,6 +58,7 @@ export async function GET() {
     return { date:key, label:day.toLocaleDateString("id-ID",{weekday:"short"}), orders:daily.length, revenue:daily.reduce((sum,o)=>sum+o.total_amount,0) };
   });
   return NextResponse.json({
+    notifications: notifications ?? [],
     products: pending.map(p => ({...p,price:Number(p.price),seller_name:sellerMap.get(p.seller_id) ?? "Mitra UMKM",category_name:categoryMap.get(p.category_id) ?? "Tanpa kategori"})),
     catalog: allProducts.map(p => ({...p,price:Number(p.price),seller_name:sellerMap.get(p.seller_id) ?? "Mitra UMKM",category_name:categoryMap.get(p.category_id) ?? "Tanpa kategori"})),
     orders: normalizedOrders,
