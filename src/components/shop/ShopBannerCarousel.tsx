@@ -26,6 +26,12 @@ export default function ShopBannerCarousel() {
   }, []);
 
   const slides = promotions.length ? promotions : editorialSlides;
+  useEffect(() => {
+    if (slides.length < 2) return;
+    const timer = window.setInterval(() => setActiveSlide((current) => (current + 1) % slides.length), 6000);
+    return () => window.clearInterval(timer);
+  }, [slides.length]);
+
   const index = activeSlide % slides.length;
   const slide = slides[index];
   const isPromotion = "image_url" in slide;
