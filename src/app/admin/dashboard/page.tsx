@@ -17,9 +17,10 @@ type Order = {
   id: string; order_number: string; recipient_name: string; recipient_phone: string;
   shipping_address: Record<string, unknown>; subtotal: number; gift_card_fee: number;
   shipping_cost: number; total_amount: number; order_status: string; payment_status: string;
-  shipping_quote_status: string; created_at: string;
+  shipping_quote_status: string; created_at: string; payment_method?: string | null;
   order_items: { product_name: string; quantity: number; line_total: number }[];
 };
+type Trend = { date: string; label: string; orders: number; revenue: number };
 type Seller = { name: string; status: string; created_at: string; description?: string | null; slug?: string };
 type Metrics = {
   totalOrders: number; paidOrders: number; pendingShipping: number; revenue: number;
@@ -75,6 +76,7 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
     activeProducts: 0, pendingProducts: 0, lowStock: 0, totalSellers: 0, activeSellers: 0,
   });
   const [sellers, setSellers] = useState<Seller[]>([]);
+  const [trend, setTrend] = useState<Trend[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
@@ -90,7 +92,7 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
       if (r.status === 401 || r.status === 403) { router.replace("/login"); return; }
       if (!r.ok) throw new Error(d.error || "Dashboard admin gagal dimuat.");
       setProducts(d.products ?? []); setOrders(d.orders ?? []); setMetrics(d.metrics ?? { totalOrders: 0, paidOrders: 0, pendingShipping: 0, revenue: 0, totalProducts: 0, activeProducts: 0, pendingProducts: 0, lowStock: 0, totalSellers: 0, activeSellers: 0 });
-      setSellers(d.sellers ?? []);
+      setSellers(d.sellers ?? []); setTrend(d.trend ?? []);
     } catch (e) { setError(e instanceof Error ? e.message : "Terjadi kesalahan saat memuat dashboard."); }
     finally { setLoading(false); }
   }, [router]);
@@ -128,6 +130,7 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
 
   const awaiting = orders.filter(o => o.payment_status === "pending" && o.shipping_quote_status === "pending");
   const paid = orders.filter(o => o.payment_status === "paid");
+  const maxTrendRevenue = Math.max(1, ...trend.map(day => day.revenue));
   const pendingSellers = sellers.filter(s => s.status !== "approved");
   const filteredOrders = useMemo(() => orders.filter(o =>
     orderFilter === "all" || (orderFilter === "shipping" && o.shipping_quote_status === "pending" && o.payment_status === "pending") ||
@@ -153,7 +156,7 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
         <Stat label="PESANAN BERJALAN" value={loading ? "—" : orders.filter(o=>!["completed","cancelled"].includes(o.order_status)).length} note={`${metrics.paidOrders} pembayaran berhasil`} icon={ShoppingBag}/>
         <Stat label="PERLU DITINJAU" value={loading ? "—" : pendingSellers.length + metrics.pendingProducts + awaiting.length} note="Prioritas hari ini" icon={Clock3}/>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4"><Stat label="OMZET TEREKAM" value={loading ? "—" : money(metrics.revenue)} note="Pembayaran berhasil" icon={Wallet}/><Stat label="MENUNGGU ONGKIR" value={loading ? "—" : awaiting.length} note="Perlu penetapan admin" icon={Truck}/><Stat label="PRODUK DIKURASI" value={loading ? "—" : metrics.pendingProducts} note="Dalam antrean review" icon={ShieldCheck}/><Stat label="PESANAN SELESAI" value={loading ? "—" : orders.filter(o=>o.order_status==="completed").length} note="Berhasil diselesaikan" icon={BadgeCheck}/></div><div className="mt-4 grid gap-4 xl:grid-cols-[1.9fr_1fr]">
+      <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4"><Stat label="OMZET TEREKAM" value={loading ? "—" : money(metrics.revenue)} note="Pembayaran berhasil" icon={Wallet}/><Stat label="MENUNGGU ONGKIR" value={loading ? "—" : awaiting.length} note="Perlu penetapan admin" icon={Truck}/><Stat label="PRODUK DIKURASI" value={loading ? "—" : metrics.pendingProducts} note="Dalam antrean review" icon={ShieldCheck}/><Stat label="PESANAN SELESAI" value={loading ? "—" : orders.filter(o=>o.order_status==="completed").length} note="Berhasil diselesaikan" icon={BadgeCheck}/></div><article className="mt-4 rounded-[13px] border border-[#D5DED6] bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[8px] font-bold tracking-[.16em] text-[#6D8B78]">FINANCIAL OVERVIEW</p><h3 className="mt-1 font-display text-[20px] text-[#17362B]">Rekapitulasi transaksi 7 hari</h3></div><p className="text-[9px] text-[#6F7F74]">Omzet dari pembayaran berhasil</p></div><div className="mt-5 grid grid-cols-7 gap-2 sm:gap-4">{trend.map(day=><div key={day.date} className="flex min-w-0 flex-col items-center"><div className="flex h-24 w-full items-end rounded-t-md bg-[#EEF2EE] sm:h-28"><div title={money(day.revenue)} className="w-full rounded-t-md bg-[#315C49]" style={{height:`${day.revenue ? Math.max(5,day.revenue/maxTrendRevenue*100) : 2}%`}}/></div><p className="mt-2 text-[8px] font-semibold text-[#6F7F74]">{day.label}</p><p className="mt-1 text-[8px] text-[#17362B]">{day.orders} trx</p></div>)}</div><div className="mt-4 flex flex-wrap justify-between gap-2 border-t border-[#E4EAE4] pt-3 text-[9px] text-[#6F7F74]"><span>Total omzet tercatat</span><strong className="text-[12px] text-[#17362B]">{money(metrics.revenue)}</strong></div></article><div className="mt-4 grid gap-4 xl:grid-cols-[1.9fr_1fr]">
         <article className="min-h-[385px] rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5">
           <div className="flex items-center justify-between gap-3"><h3 className="font-display text-[20px] text-[#431714]">Antrean prioritas</h3><a href="/admin/umkm" className="text-[9px] font-bold text-[#93372A]">Lihat semua <ArrowUpRight size={12} className="inline"/></a></div>
           <div className="mt-4 hidden grid-cols-[.8fr_1.4fr_.7fr_.8fr] border-y border-[#DCD2C1] py-3 text-[8px] font-bold tracking-[.12em] text-[#7A6C5E] sm:grid"><span>JENIS</span><span>NAMA</span><span>MASUK</span><span>STATUS</span></div>
@@ -240,7 +243,7 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
         <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-display text-[20px] text-[#431714]">Transaksi terbaru</h3><div className="flex flex-wrap gap-2">{[{id:"all",label:"Semua"},{id:"shipping",label:"Menunggu ongkir"},{id:"paid",label:"Lunas"},{id:"cancelled",label:"Dibatalkan"}].map(f=><button key={f.id} onClick={()=>setOrderFilter(f.id)} className={`rounded-full px-3 py-2 text-[9px] font-bold ${orderFilter===f.id ? "bg-[#431714] text-white" : "border border-[#DCD2C1] text-[#7A6C5E]"}`}>{f.label}</button>)}</div></div>
         {loading ? <p className="py-8 text-center text-[11px] text-[#7A6C5E]">Memuat transaksi...</p> : filteredOrders.length === 0 ? <p className="py-10 text-center text-[11px] text-[#7A6C5E]">Tidak ada transaksi pada filter ini.</p> :
           <div className="mt-4 space-y-3">{filteredOrders.map(o=><article key={o.id} className="rounded-lg border border-[#E7DDCC] bg-white p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[9px] font-bold text-[#93372A]">{o.order_number} · {date(o.created_at)}</p><p className="mt-1 text-[11px] font-semibold">{o.recipient_name}</p><p className="mt-1 text-[9px] text-[#7A6C5E]">{o.recipient_phone} · {String(o.shipping_address?.address ?? "Alamat tidak tersedia")}</p></div><span className={`rounded-full px-3 py-1.5 text-[8px] font-bold ${statusClass(o.payment_status)}`}>{o.payment_status === "paid" ? "Berhasil" : o.order_status === "cancelled" ? "Dibatalkan" : o.shipping_quote_status === "quoted" ? "Menunggu pembayaran" : "Menunggu ongkir"}</span></div>
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><p className="text-[9px] font-bold text-[#93372A]">{o.order_number} · {date(o.created_at)}</p>{o.payment_method === "demo_seed" && <span className="rounded-full bg-[#EEF2EE] px-2 py-1 text-[7px] font-bold tracking-[.1em] text-[#315C49]">DEMO DATA</span>}</div><p className="mt-1 text-[11px] font-semibold">{o.recipient_name}</p><p className="mt-1 text-[9px] text-[#7A6C5E]">{o.recipient_phone} · {String(o.shipping_address?.address ?? "Alamat tidak tersedia")}</p></div><span className={`rounded-full px-3 py-1.5 text-[8px] font-bold ${statusClass(o.payment_status)}`}>{o.payment_status === "paid" ? "Berhasil" : o.order_status === "cancelled" ? "Dibatalkan" : o.shipping_quote_status === "quoted" ? "Menunggu pembayaran" : "Menunggu ongkir"}</span></div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[#E8DFD2] pt-3"><div className="text-[9px] text-[#7A6C5E]">{o.order_items.map(i=>`${i.product_name} × ${i.quantity}`).join(" · ")}<p className="mt-1 font-bold text-[#431714]">{money(o.total_amount)}</p></div>
               {o.payment_status==="pending" && o.shipping_quote_status==="pending" && o.order_status!=="cancelled" && <div className="flex w-full gap-2 sm:w-auto"><input type="number" min="0" step="1" value={shipping[o.order_number]??""} onChange={e=>setShipping(v=>({...v,[o.order_number]:e.target.value}))} placeholder="Ongkir (Rp)" className="min-w-0 flex-1 rounded-full border border-[#DCD2C1] px-3 py-2 text-[9px] sm:w-32"/><button disabled={busy===o.order_number} onClick={()=>void quote(o.order_number)} className="rounded-full bg-[#431714] px-4 py-2 text-[9px] font-bold text-white disabled:opacity-50">{busy===o.order_number ? "..." : "Tetapkan ongkir"}</button></div>}
             </div>
