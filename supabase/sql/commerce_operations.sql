@@ -97,7 +97,7 @@ begin
     insert into public.notifications (user_id,title,message,type,related_order_id)
     select p.id,'Produk diarsipkan oleh UMKM',
       format('%s mengarsipkan produk "%s" (ID: %s).',coalesce(sp.business_name,'Mitra UMKM'),new.name,new.id),
-      'product_archived',new.id::text
+      'warning',new.id::text
     from public.profiles p
     left join public.seller_profiles sp on sp.user_id=new.seller_id
     where p.role_id='admin';
