@@ -79,7 +79,7 @@ export default function DashboardShell({
   const mobileRole = role === "ADMIN" ? "NUSANTARA GIFT · ADMIN" : "RUANG BERKARYA";
 
   return (
-    <div className={`min-h-dvh text-[#251E1A] ${role === "ADMIN" ? "bg-[#F7F1E3]" : "bg-[#F7F1E3]"}`}>
+    <div className={`dashboard-shell min-h-dvh text-[#251E1A] ${role === "ADMIN" ? "bg-[#F7F1E3]" : "bg-[#F7F1E3]"}`}>
       <aside className={`fixed inset-y-0 left-0 z-40 hidden w-[260px] flex-col border-r xl:flex ${role === "ADMIN" ? "border-[#5A2A24] bg-[#431714] text-[#F5F1E7]" : "border-[#E7DDCC] bg-[#FDFAF3]"}`}>
         <Link href={home} className="block px-7 pt-7"><img src="/images/brand/LOGO.svg" alt="Nusantara Gift" className="h-12 w-[174px] object-contain object-left"/><span className={`mt-2 block text-[8px] font-bold tracking-[.18em] ${role === "ADMIN" ? "text-[#C79854]" : "text-[#7A6C5E]"}`}>{role === "ADMIN" ? "PLATFORM CONTROL · ADMIN" : "ARTISAN ATELIER · UMKM"}</span></Link>
         <div className="px-7 pt-9">
