@@ -69,7 +69,7 @@ function EditorialFooter() {
 
 export default function AdminDashboardPage({ module = "overview" }: { module?: string }) {
   const router = useRouter();
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);\n  const [catalog, setCatalog] = useState<Product[]>([]);\n  const [notices, setNotices] = useState<AdminNotice[]>([]);\n  const [editingProduct, setEditingProduct] = useState<Product | null>(null);\n  const [editValues, setEditValues] = useState({ name: "", description: "", price: "", stock: "" });
   const [orders, setOrders] = useState<Order[]>([]);
   const [metrics, setMetrics] = useState<Metrics>({
     totalOrders: 0, paidOrders: 0, pendingShipping: 0, revenue: 0, totalProducts: 0,
@@ -91,7 +91,7 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
       const d = await r.json();
       if (r.status === 401 || r.status === 403) { router.replace("/login"); return; }
       if (!r.ok) throw new Error(d.error || "Dashboard admin gagal dimuat.");
-      setProducts(d.products ?? []); setOrders(d.orders ?? []); setMetrics(d.metrics ?? { totalOrders: 0, paidOrders: 0, pendingShipping: 0, revenue: 0, totalProducts: 0, activeProducts: 0, pendingProducts: 0, lowStock: 0, totalSellers: 0, activeSellers: 0 });
+      setProducts(d.products ?? []); setCatalog(d.catalog ?? []); setNotices(d.notifications ?? []); setOrders(d.orders ?? []); setMetrics(d.metrics ?? { totalOrders: 0, paidOrders: 0, pendingShipping: 0, revenue: 0, totalProducts: 0, activeProducts: 0, pendingProducts: 0, lowStock: 0, totalSellers: 0, activeSellers: 0 });
       setSellers(d.sellers ?? []); setTrend(d.trend ?? []);
     } catch (e) { setError(e instanceof Error ? e.message : "Terjadi kesalahan saat memuat dashboard."); }
     finally { setLoading(false); }
@@ -109,6 +109,28 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
       setMessage(status === "active" ? "Produk disetujui dan dipublikasikan." : "Produk dikembalikan untuk perbaikan.");
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Moderasi gagal."); }
+    finally { setBusy(""); }
+  }
+
+  async function manageProduct(id: string, action: "archive" | "restore" | "stock", delta?: number) {
+    setBusy(id); setError(""); setMessage("");
+    try {
+      const r = await fetch("/api/admin/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action, delta }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Produk gagal diperbarui.");
+      setMessage(action === "stock" ? "Stok produk diperbarui." : action === "archive" ? "Produk diarsipkan. Riwayat tetap tersedia." : "Produk dikembalikan ke antrean kurasi.");
+      await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Produk gagal diperbarui."); }
+    finally { setBusy(""); }
+  }
+
+  async function saveAdminProduct(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); if (!editingProduct) return;
+    setBusy(editingProduct.id); setError(""); setMessage("");
+    try {
+      const r = await fetch("/api/admin/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editingProduct.id, ...editValues, price: Number(editValues.price), stock: Number(editValues.stock) }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Perubahan produk gagal disimpan.");
+      setEditingProduct(null); setMessage("Detail produk berhasil diperbarui."); await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Perubahan produk gagal disimpan."); }
     finally { setBusy(""); }
   }
 
@@ -150,6 +172,10 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
 <section id="overview" className="scroll-mt-24">
       <PageIntro eyebrow="NUSANTARA GIFT · ADMINISTRATION" title={<><span className="hidden sm:inline">Menjaga kualitas setiap cerita</span><span className="sm:hidden">Curator desk</span></>} description={<><span className="hidden sm:inline">Pantau ekosistem, kepercayaan, dan kualitas pengalaman Nusantara Gift.</span><span className="sm:hidden">Jaga kualitas cerita dan pengalaman pelanggan.</span></>}
         action={<div className="flex flex-wrap gap-2"><button onClick={()=>void load()} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-full border border-[#DCD2C1] bg-[#FDFAF3] px-4 text-[9px] font-bold text-[#7A6C5E] disabled:opacity-50"><RefreshCw size={13} className={loading?"animate-spin":""}/> Perbarui</button><a href="/admin/umkm" className="inline-flex h-10 items-center gap-2 rounded-full bg-[#431714] px-5 text-[9px] font-bold text-white">Buka pusat tinjauan <ArrowRight size={13}/></a></div>}/>
+      {notices.length > 0 && <section className="mb-4 rounded-[13px] border border-[#D9B77C]/50 bg-[#FFF9EC] p-4">
+        <div className="flex items-center justify-between gap-3"><div><p className="text-[8px] font-bold tracking-[.16em] text-[#9A713A]">ACTIVITY ALERTS</p><h3 className="mt-1 font-display text-[19px] text-[#431714]">Aktivitas mitra yang perlu diketahui</h3></div><span className="rounded-full bg-[#F6EFDF] px-3 py-1.5 text-[9px] font-bold text-[#9A713A]">{notices.length} baru</span></div>
+        <div className="mt-3 space-y-2">{notices.map(n=><div key={n.id} className="rounded-lg border border-[#E9DCC4] bg-white/80 p-3"><p className="text-[10px] font-bold text-[#431714]">{n.title}</p><p className="mt-1 text-[9px] leading-4 text-[#7A6C5E]">{n.message}</p><p className="mt-1 text-[8px] text-[#9A713A]">{date(n.created_at)}</p></div>)}</div>
+      </section>}
       <div className="mb-5 overflow-hidden rounded-[16px] bg-[#17362B] px-5 py-5 text-white sm:px-7 sm:py-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-[8px] font-bold tracking-[.2em] text-[#D8B77C]">NUSANTARA GIFT · PLATFORM CONTROL</p><h3 className="mt-2 font-display text-[24px] sm:text-[30px]">Good morning, Curator.</h3><p className="mt-2 max-w-xl text-[10px] leading-5 text-[#C5D3C9]">Satu ruang kendali untuk menjaga kualitas mitra, katalog, dan transaksi Nusantara.</p></div><div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3"><p className="text-[8px] tracking-[.14em] text-[#D8B77C]">PLATFORM STATUS</p><p className="mt-1 text-[11px] font-bold">All systems operational</p></div></div></div><div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Stat label="UMKM AKTIF" value={loading ? "—" : metrics.activeSellers} note={`${pendingSellers.length} perlu ditinjau`} icon={Store}/>
         <Stat label="PRODUK TAYANG" value={loading ? "—" : metrics.activeProducts.toLocaleString("id-ID")} note={`${metrics.totalProducts} produk tercatat`} icon={Package}/>
@@ -227,6 +253,14 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
           <div className="mt-5 space-y-4">{[{title:"Kualitas visual",detail:"Foto tajam, terang, dan konsisten."},{title:"Keaslian cerita",detail:"Asal, bahan, dan proses pembuatan jelas."},{title:"Kelayakan produk",detail:"Harga, stok, dan deskripsi sesuai."}].map(x=><div key={x.title} className="border-b border-[#DCD2C1] pb-4 last:border-0"><p className="text-[10px] font-semibold">{x.title}</p><p className="mt-1 text-[9px] text-[#7A6C5E]">{x.detail}</p></div>)}</div>
         </aside>
       </div>
+      <article className="mt-5 rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5">
+        <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-[8px] font-bold tracking-[.16em] text-[#C79854]">PLATFORM CATALOG CONTROL</p><h3 className="mt-1 font-display text-[21px] text-[#431714]">Manajemen seluruh produk</h3><p className="mt-1 text-[9px] text-[#7A6C5E]">Admin dapat mengubah detail, stok, dan status arsip seluruh katalog.</p></div><span className="rounded-full bg-[#F3EBDD] px-3 py-2 text-[9px] font-bold text-[#93372A]">{catalog.length} produk</span></div>
+        <div className="mt-4 space-y-3">{catalog.map(p=><div key={p.id} className="rounded-lg border border-[#E7DDCC] bg-white p-3">
+          <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-[8px] font-bold tracking-[.1em] text-[#9A713A]">{p.seller_name} · {p.category_name}</p><p className="mt-1 text-[11px] font-bold text-[#251E1A]">{p.name}</p><p className="mt-1 text-[9px] text-[#7A6C5E]">{money(p.price)} · Stok {p.stock}</p></div><span className={`rounded-full px-2.5 py-1 text-[8px] font-bold ${statusClass(p.status)}`}>{p.status==="archived"?"Diarsipkan":p.status==="active"?"Tayang":p.status==="pending_review"?"Menunggu kurasi":p.status}</span></div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#E8DFD2] pt-3"><button onClick={()=>{setEditingProduct(p);setEditValues({name:p.name,description:p.description??"",price:String(p.price),stock:String(p.stock)});}} className="rounded-full border border-[#DCD2C1] px-3 py-1.5 text-[8px] font-bold text-[#431714]">Edit detail</button><button disabled={busy===p.id||p.stock===0} onClick={()=>void manageProduct(p.id,"stock",-1)} className="h-7 w-7 rounded-full border border-[#DCD2C1] text-[12px] disabled:opacity-30">−</button><button disabled={busy===p.id} onClick={()=>void manageProduct(p.id,"stock",1)} className="h-7 w-7 rounded-full border border-[#DCD2C1] text-[12px] disabled:opacity-30">+</button><span className="text-[8px] text-[#7A6C5E]">Atur stok</span>{p.status==="archived"?<button onClick={()=>void manageProduct(p.id,"restore")} className="ml-auto rounded-full bg-[#4F6E59] px-3 py-1.5 text-[8px] font-bold text-white">Pulihkan</button>:<button onClick={()=>void manageProduct(p.id,"archive")} className="ml-auto rounded-full border border-[#E6C7BD] px-3 py-1.5 text-[8px] font-bold text-[#93372A]">Arsipkan</button>}</div>
+        </div>)}</div>
+      </article>
+      {editingProduct && <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#142A24]/60 p-4"><form onSubmit={saveAdminProduct} className="my-auto w-full max-w-xl rounded-2xl bg-[#FDFAF3] p-5 shadow-2xl sm:p-7"><div className="flex items-start justify-between gap-3"><div><p className="text-[8px] font-bold tracking-[.16em] text-[#C79854]">ADMIN CATALOG CONTROL</p><h3 className="mt-1 font-display text-[23px] text-[#431714]">Edit produk</h3></div><button type="button" onClick={()=>setEditingProduct(null)} className="rounded-full border border-[#DCD2C1] px-3 py-1.5 text-[9px]">Tutup</button></div><div className="mt-5 grid gap-3"><label className="text-[9px] font-bold text-[#7A6C5E]">NAMA<input required minLength={3} value={editValues.name} onChange={e=>setEditValues({...editValues,name:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"/></label><label className="text-[9px] font-bold text-[#7A6C5E]">DESKRIPSI<textarea required minLength={10} rows={3} value={editValues.description} onChange={e=>setEditValues({...editValues,description:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"/></label><div className="grid grid-cols-2 gap-3"><label className="text-[9px] font-bold text-[#7A6C5E]">HARGA<input required type="number" min="1" value={editValues.price} onChange={e=>setEditValues({...editValues,price:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"/></label><label className="text-[9px] font-bold text-[#7A6C5E]">STOK<input required type="number" min="0" value={editValues.stock} onChange={e=>setEditValues({...editValues,stock:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"/></label></div></div><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={()=>setEditingProduct(null)} className="rounded-full border border-[#DCD2C1] px-4 py-2 text-[9px]">Batal</button><button disabled={busy===editingProduct.id} className="rounded-full bg-[#17362B] px-5 py-2 text-[9px] font-bold text-white">Simpan perubahan</button></div></form></div>}
       <EditorialFooter/>
     </section>
 )}
