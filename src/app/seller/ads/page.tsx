@@ -31,7 +31,7 @@ const money = (value: number) => new Intl.NumberFormat("id-ID", { style: "curren
 const limits = { title: 42, description: 90 };
 
 function statusLabel(status: Promotion["status"]) {
-  return status === "pending_review" ? "Menunggu kurasi" : status === "active" ? "Tayang" : status === "paused" ? "Diturunkan" : "Perlu revisi";
+  return status === "pending_review" ? "Menunggu kurasi" : status === "active" ? "Tayang" : status === "paused" ? "Dijeda" : "Perlu revisi";
 }
 function statusStyle(status: Promotion["status"]) {
   return status === "active" ? "bg-[#EAF0E8] text-[#4F6E59]" : status === "rejected" ? "bg-[#F8E9E5] text-[#93372A]" : "bg-[#F6EFDF] text-[#9A713A]";
