@@ -44,13 +44,14 @@ export async function PATCH(request: Request) {
   const id = typeof body.id === "string" ? body.id : "";
   const status = body.status;
   const note = typeof body.note === "string" ? body.note.trim() : "";
-  if (!id || !["active", "rejected"].includes(status)) return NextResponse.json({ error: "Keputusan kurasi tidak valid." }, { status: 400 });
-  if (status === "rejected" && note.length < 12) return NextResponse.json({ error: "Alasan penolakan wajib diisi minimal 12 karakter agar UMKM dapat memperbaiki iklannya." }, { status: 400 });
-  if (note.length > 500) return NextResponse.json({ error: "Alasan kurasi maksimal 500 karakter." }, { status: 400 });
+  if (!id || !["active", "rejected", "paused"].includes(status)) return NextResponse.json({ error: "Keputusan moderasi tidak valid." }, { status: 400 });
+  if (["rejected", "paused"].includes(status) && note.length < 12) return NextResponse.json({ error: "Alasan wajib diisi minimal 12 karakter agar UMKM memahami keputusan Admin." }, { status: 400 });
+  if (note.length > 500) return NextResponse.json({ error: "Catatan moderasi maksimal 500 karakter." }, { status: 400 });
+  const allowedSourceStatuses = status === "paused" ? ["active"] : status === "rejected" ? ["pending_review"] : ["pending_review"];
   const { data, error } = await supabase.from("promotions").update({
-    status, moderation_note: status === "rejected" ? note : null,
+    status, moderation_note: ["rejected", "paused"].includes(status) ? note : null,
     reviewed_by: user.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-  }).eq("id", id).eq("status", "pending_review")
+  }).eq("id", id).in("status", allowedSourceStatuses)
     .select("id,status,moderation_note,reviewed_at").maybeSingle();
   if (error || !data) return NextResponse.json({ error: "Iklan tidak ditemukan atau sudah ditinjau oleh Admin lain." }, { status: 400 });
   return NextResponse.json({ promotion: data });
