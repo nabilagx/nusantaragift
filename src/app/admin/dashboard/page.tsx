@@ -128,6 +128,14 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
     finally { setBusy(""); }
   }
 
+  async function markNoticeRead(notificationId: string) {
+    try {
+      const r = await fetch("/api/admin/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "mark_notification_read", notificationId }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Notifikasi gagal diperbarui.");
+      setNotices(current => current.filter(item => item.id !== notificationId));
+    } catch (e) { setError(e instanceof Error ? e.message : "Notifikasi gagal diperbarui."); }
+  }
+
   async function saveAdminProduct(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); if (!editingProduct) return;
     setBusy(editingProduct.id); setError(""); setMessage("");
@@ -179,7 +187,7 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
         action={<div className="flex flex-wrap gap-2"><button onClick={()=>void load()} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-full border border-[#DCD2C1] bg-[#FDFAF3] px-4 text-[9px] font-bold text-[#7A6C5E] disabled:opacity-50"><RefreshCw size={13} className={loading?"animate-spin":""}/> Perbarui</button><a href="/admin/umkm" className="inline-flex h-10 items-center gap-2 rounded-full bg-[#431714] px-5 text-[9px] font-bold text-white">Buka pusat tinjauan <ArrowRight size={13}/></a></div>}/>
       {notices.length > 0 && <section className="mb-4 rounded-[13px] border border-[#D9B77C]/50 bg-[#FFF9EC] p-4">
         <div className="flex items-center justify-between gap-3"><div><p className="text-[8px] font-bold tracking-[.16em] text-[#9A713A]">ACTIVITY ALERTS</p><h3 className="mt-1 font-display text-[19px] text-[#431714]">Aktivitas mitra yang perlu diketahui</h3></div><span className="rounded-full bg-[#F6EFDF] px-3 py-1.5 text-[9px] font-bold text-[#9A713A]">{notices.length} baru</span></div>
-        <div className="mt-3 space-y-2">{notices.map(n=><div key={n.id} className="rounded-lg border border-[#E9DCC4] bg-white/80 p-3"><p className="text-[10px] font-bold text-[#431714]">{n.title}</p><p className="mt-1 text-[9px] leading-4 text-[#7A6C5E]">{n.message}</p><p className="mt-1 text-[8px] text-[#9A713A]">{date(n.created_at)}</p></div>)}</div>
+        <div className="mt-3 space-y-2">{notices.map(n=><div key={n.id} className="rounded-lg border border-[#E9DCC4] bg-white/80 p-3"><p className="text-[10px] font-bold text-[#431714]">{n.title}</p><p className="mt-1 text-[9px] leading-4 text-[#7A6C5E]">{n.message}</p><div className="mt-2 flex items-center justify-between gap-2"><p className="text-[8px] text-[#9A713A]">{date(n.created_at)}</p><button onClick={()=>void markNoticeRead(n.id)} className="text-[8px] font-bold text-[#4F6E59] hover:underline">Tandai dibaca</button></div></div>)}</div>
       </section>}
       <div className="mb-5 overflow-hidden rounded-[16px] bg-[#17362B] px-5 py-5 text-white sm:px-7 sm:py-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-[8px] font-bold tracking-[.2em] text-[#D8B77C]">NUSANTARA GIFT · PLATFORM CONTROL</p><h3 className="mt-2 font-display text-[24px] sm:text-[30px]">Good morning, Curator.</h3><p className="mt-2 max-w-xl text-[10px] leading-5 text-[#C5D3C9]">Satu ruang kendali untuk menjaga kualitas mitra, katalog, dan transaksi Nusantara.</p></div><div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3"><p className="text-[8px] tracking-[.14em] text-[#D8B77C]">PLATFORM STATUS</p><p className="mt-1 text-[11px] font-bold">All systems operational</p></div></div></div><div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Stat label="UMKM AKTIF" value={loading ? "—" : metrics.activeSellers} note={`${pendingSellers.length} perlu ditinjau`} icon={Store}/>
