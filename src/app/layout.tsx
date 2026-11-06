@@ -10,6 +10,7 @@ const dmSerif = DM_Serif_Display({ subsets: ["latin"], weight: "400", variable: 
 export const metadata: Metadata = {
   title: "NusantaraGift",
   description: "Temukan hadiah dan pengalaman budaya khas Nusantara.",
+  icons: { icon: "/images/brand/LOGO.svg", shortcut: "/images/brand/LOGO.svg", apple: "/images/brand/LOGO.svg" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
