@@ -95,7 +95,7 @@ export async function PATCH(request: Request) {
 
   if (body.action === "pause") {
     const { data, error: updateError } = await supabase.from("promotions")
-      .update({ status: "paused", updated_at: new Date().toISOString() })
+      .update({ status: "paused", moderation_note: "Banner diturunkan oleh pemilik toko.", reviewed_by: null, reviewed_at: null, updated_at: new Date().toISOString() })
       .eq("id", body.id).eq("seller_id", user.id).eq("status", "active")
       .select("id,status").maybeSingle();
     if (updateError || !data) return NextResponse.json({ error: "Banner tidak ditemukan atau sudah tidak tayang." }, { status: 400 });
