@@ -13,7 +13,7 @@ export async function GET() {
     supabase.from("products").select("id,name,slug,description,price,stock,status,created_at,seller_id,category_id,metadata").eq("status", "pending_review").order("created_at", { ascending: true }),
     supabase.from("orders").select("id,order_number,recipient_name,recipient_phone,shipping_address,subtotal,gift_card_fee,shipping_cost,total_amount,order_status,payment_status,shipping_quote_status,created_at").order("created_at", { ascending: false }).limit(500),
     supabase.from("products").select("id,status,stock,seller_id"),
-    supabase.from("seller_profiles").select("user_id,business_name,status,created_at"),
+    supabase.from("seller_profiles").select("user_id,business_name,slug,description,status,created_at"),
   ]);
   for (const [name, result] of [["moderasi",pendingResult],["pesanan",orderResult],["statistik produk",productStatsResult],["mitra",sellerResult]] as const) {
     if (result.error) {
@@ -67,6 +67,6 @@ export async function GET() {
       totalSellers: sellers.length, activeSellers: sellers.filter(s=>s.status==="approved").length,
     },
     trend,
-    sellers: sellers.map(s=>({name:s.business_name,status:s.status,created_at:s.created_at})),
+    sellers: sellers.map(s=>({name:s.business_name,slug:s.slug,description:s.description,status:s.status,created_at:s.created_at})),
   });
 }
