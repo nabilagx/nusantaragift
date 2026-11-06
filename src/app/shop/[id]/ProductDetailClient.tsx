@@ -224,25 +224,15 @@ export default function ProductDetailPage({ id }: { id: string }) {
                 HARGA
               </p>
 
-              <p className="mt-1 font-quicksand text-2xl font-bold text-[#93372A]">
-                {product.price}
+              <p className="mt-1 font-quicksand text-2xl font-bold text-[#93372A]">{product.price}</p>
+              <p className={`mt-2 text-xs font-semibold ${product.stock > 0 ? "text-[#47704C]" : "text-[#A13D32]"}`}>
+                {product.stock > 0 ? `Stok tersedia: ${product.stock}` : "Stok habis"}
               </p>
             </div>
 
             <div className="text-right">
-              <p className="text-xs font-semibold tracking-wider text-[#A18B6D]">
-                UKURAN
-              </p>
-
-              <p className="mt-1 text-sm font-semibold text-[#34291F]">
-                {product.size}
-              </p>
-            </div>
-
-            <div className="absolute left-5 top-5 rounded-full border border-white/70 bg-white/90 px-4 py-2 text-xs font-bold shadow-sm sm:left-8 sm:top-8">
-              <span className={product.stock > 0 ? "text-[#47704C]" : "text-[#A13D32]"}>
-                {product.stock > 0 ? `Stok tersedia: ${product.stock}` : "Stok habis"}
-              </span>
+              <p className="text-xs font-semibold tracking-wider text-[#A18B6D]">UKURAN</p>
+              <p className="mt-1 text-sm font-semibold text-[#34291F]">{product.size}</p>
             </div>
           </div>
 
