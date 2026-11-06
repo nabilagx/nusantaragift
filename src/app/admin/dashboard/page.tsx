@@ -11,8 +11,9 @@ import DashboardShell, { type DashboardNavItem } from "@/components/dashboard/Da
 
 type Product = {
   id: string; name: string; description: string | null; price: number; stock: number;
-  seller_name: string; category_name: string; created_at: string; metadata?: Record<string, unknown>;
+  seller_name: string; category_name: string; created_at: string; status: string; metadata?: Record<string, unknown>;
 };
+type AdminNotice = { id: string; title: string; message: string; type: string; created_at: string };
 type Order = {
   id: string; order_number: string; recipient_name: string; recipient_phone: string;
   shipping_address: Record<string, unknown>; subtotal: number; gift_card_fee: number;
@@ -69,7 +70,11 @@ function EditorialFooter() {
 
 export default function AdminDashboardPage({ module = "overview" }: { module?: string }) {
   const router = useRouter();
-  const [products, setProducts] = useState<Product[]>([]);\n  const [catalog, setCatalog] = useState<Product[]>([]);\n  const [notices, setNotices] = useState<AdminNotice[]>([]);\n  const [editingProduct, setEditingProduct] = useState<Product | null>(null);\n  const [editValues, setEditValues] = useState({ name: "", description: "", price: "", stock: "" });
+  const [products, setProducts] = useState<Product[]>([]);
+  const [catalog, setCatalog] = useState<Product[]>([]);
+  const [notices, setNotices] = useState<AdminNotice[]>([]);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editValues, setEditValues] = useState({ name: "", description: "", price: "", stock: "" });
   const [orders, setOrders] = useState<Order[]>([]);
   const [metrics, setMetrics] = useState<Metrics>({
     totalOrders: 0, paidOrders: 0, pendingShipping: 0, revenue: 0, totalProducts: 0,
