@@ -155,7 +155,19 @@ export default function SellerAdsPage() {
 
         <label className="mb-1 block text-[10px] font-bold text-[#5F4D3D]">URL gambar banner</label>
         <input value={imageUrl} onChange={e=>setImageUrl(e.target.value)} required type="url" placeholder="https://..." className="mb-2 w-full rounded-xl border border-[#DCD2C1] bg-white px-4 py-3 text-sm outline-none focus:border-[#93372A]"/>
-        {imageUrl && <div className="mb-4 overflow-hidden rounded-xl border border-[#E5D6BD] bg-white"><div className="aspect-[16/5] w-full bg-[#F3EBDD]"><img src={imageUrl} alt="Pratinjau banner iklan" className="h-full w-full object-cover" onError={e=>{e.currentTarget.style.display="none"}}/></div><p className="px-3 py-2 text-[9px] text-[#7A6C5E]">Pratinjau rasio banner 16:5</p></div>}
+        {imageUrl && <div className="mb-4 overflow-hidden rounded-xl border border-[#E5D6BD] bg-white">
+          <div className="relative flex h-[180px] items-center overflow-hidden bg-[#431714] text-white sm:h-[250px]">
+            <img src={imageUrl} alt="Pratinjau banner iklan" className="absolute inset-0 h-full w-full object-cover" onError={e=>{e.currentTarget.style.display="none"}}/>
+            <div className="absolute inset-0 bg-gradient-to-r from-[#24100E]/95 via-[#24100E]/75 to-[#24100E]/10"/>
+            <div className="relative z-10 max-w-[78%] px-8 py-6 sm:max-w-[65%] sm:px-12">
+              <span className="inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[9px] font-bold tracking-[.16em]">IKLAN PILIHAN UMKM</span>
+              <h3 className="mt-3 line-clamp-2 break-words font-quicksand text-xl font-bold leading-tight text-white sm:text-3xl">{title || "Judul iklan kamu"}</h3>
+              <p className="mt-2 line-clamp-2 max-w-[380px] break-words text-[11px] leading-relaxed text-white/85 sm:text-sm">{description || "Deskripsi singkat produk yang ingin kamu tampilkan."}</p>
+              <span className="mt-4 inline-flex rounded-full bg-[#F3EBDD] px-4 py-2.5 text-[10px] font-bold text-[#7B2925] sm:text-xs">Lihat produk pilihan</span>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-[9px] text-[#7A6C5E]"><span>Preview responsif: HP & desktop</span><span>Teks panjang otomatis menjadi …</span></div>
+        </div>}
 
         <div className="mb-2 flex items-center justify-between gap-2"><label className="text-[10px] font-bold text-[#5F4D3D]">Produk yang diiklankan</label><span className="text-[10px] font-semibold text-[#93372A]">{selected.length}/12 dipilih</span></div>
         <div className="max-h-[330px] space-y-2 overflow-y-auto rounded-xl border border-[#E5D6BD] bg-white p-3">
@@ -180,7 +192,7 @@ export default function SellerAdsPage() {
           <div className="p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="text-sm font-bold text-[#431714]">{item.title}</h3><p className="mt-1 text-[10px] text-[#7A6C5E]">{item.product_ids.length} produk · Diajukan {new Date(item.created_at).toLocaleDateString("id-ID")}</p></div><span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${statusStyle(item.status)}`}>{statusLabel(item.status)}</span></div>
             {item.status==="pending_review" && <p className="mt-3 rounded-lg bg-[#F6EFDF] p-3 text-[10px] leading-4 text-[#805D2D]">Pengajuan sedang diperiksa Admin. Banner belum ditampilkan kepada Customer.</p>}
             {item.status==="rejected" && <div className="mt-3 rounded-lg border border-[#E6C7BD] bg-[#F8E9E5] p-3"><p className="text-[9px] font-bold text-[#93372A]">ALASAN PENOLAKAN ADMIN</p><p className="mt-1 text-[10px] leading-4 text-[#7B2925]">{item.moderation_note || "Admin meminta perbaikan materi iklan."}</p><p className="mt-2 text-[9px] text-[#7A6C5E]">Perbaiki poin di atas, lalu edit dan ajukan ulang agar ditinjau kembali.</p></div>}
-            {item.status==="paused" && <p className="mt-3 rounded-lg bg-[#F6EFDF] p-3 text-[10px] text-[#805D2D]">Banner sudah diturunkan dari halaman Customer. Riwayat pengajuan tetap disimpan.</p>}
+            {item.status==="paused" && <div className="mt-3 rounded-lg border border-[#E5D6BD] bg-[#F6EFDF] p-3"><p className="text-[9px] font-bold text-[#805D2D]">STATUS PENAYANGAN DIJEDA</p><p className="mt-1 text-[10px] leading-4 text-[#805D2D]">{item.moderation_note || "Banner sudah diturunkan dari halaman Customer. Riwayat pengajuan tetap disimpan."}</p></div>}
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#E8DFD2] pt-3">
               <button onClick={()=>startEdit(item)} className="inline-flex items-center gap-1.5 rounded-full border border-[#DCD2C1] px-3 py-2 text-[10px] font-bold text-[#7B2925]"><Pencil size={13}/> Edit {item.status==="rejected"?"& ajukan ulang":""}</button>
               {item.status==="active" && <button onClick={()=>void pausePromotion(item)} disabled={busy===item.id} className="inline-flex items-center gap-1.5 rounded-full border border-[#E6C7BD] px-3 py-2 text-[10px] font-bold text-[#93372A] disabled:opacity-50">{busy===item.id?"Memproses...":<><PauseCircle size={13}/> Turunkan banner</>}</button>}
