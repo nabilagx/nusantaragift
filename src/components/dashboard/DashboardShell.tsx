@@ -125,7 +125,7 @@ export default function DashboardShell({
             const selected = active(item.href);
             return (
               <Link key={item.href} href={item.href} aria-current={selected ? "page" : undefined}
-                className={`relative flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[9px] font-bold transition-colors ${role === "ADMIN" ? (selected ? "text-[#E5C58D]" : "text-[#B8C9BE] hover:bg-white/5") : (selected ? "text-[#E5C58D]" : "text-[#E9DCCB]/75 hover:bg-white/5")}`}>
+                className={`relative flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[9px] font-bold transition-colors ${role === "ADMIN" ? (selected ? "text-[#E5C58D]" : "text-[#B8C9BE] hover:bg-white/5") : item.icon === "add" ? "-mt-5 rounded-2xl bg-[#E5C58D] px-2 py-2 text-[#431714] shadow-[0_8px_18px_rgba(20,10,5,.28)]" : (selected ? "text-[#E5C58D]" : "text-[#E9DCCB]/75 hover:bg-white/5")}`}>
                 {selected && <span className={`absolute -top-2 h-[2px] w-7 rounded-full ${role === "ADMIN" ? "bg-[#D8B77C]" : "bg-[#E5C58D]"}`}/>}
                 <Icon size={19} strokeWidth={1.7}/>
                 <span className="max-w-full truncate">{item.label}</span>
