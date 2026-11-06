@@ -118,15 +118,15 @@ export default function DashboardShell({
 
       {drawerOpen && <div className="fixed inset-0 z-[60] xl:hidden"><button aria-label="Tutup menu" onClick={()=>setDrawerOpen(false)} className="absolute inset-0 bg-[#171D19]/55"/><aside className="absolute right-0 top-0 flex h-full w-[min(88vw,360px)] flex-col bg-[#FDFAF3] p-5 shadow-2xl"><div className="flex items-center justify-between border-b border-[#DCD2C1] pb-4"><img src="/images/brand/LOGO.svg" alt="Nusantara Gift" className="h-10 w-36 object-contain object-left"/><button onClick={()=>setDrawerOpen(false)} aria-label="Tutup menu" className="rounded-full p-2 text-[#431714]"><CloseIcon size={20}/></button></div><p className="mt-5 text-[9px] font-bold tracking-[.16em] text-[#C79854]">{roleLabel}</p><nav className="mt-3 space-y-1">{navItems.map(item=>{const Icon=icons[item.icon];return <Link key={item.href} href={item.href} onClick={()=>setDrawerOpen(false)} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-[12px] font-semibold ${active(item.href)?"bg-[#431714] text-white":"text-[#66584B] hover:bg-[#F3EBDD]"}`}><Icon size={17}/>{item.label}</Link>})}</nav><div className="mt-auto border-t border-[#DCD2C1] pt-4"><p className="text-[10px] font-bold text-[#431714]">{role==="ADMIN"?"Administrator":"Akun artisan"}</p><p className="mt-1 text-[9px] text-[#7A6C5E]">{mobileRole}</p></div></aside></div>}
 
-      <nav aria-label="Navigasi mobile" className="fixed inset-x-0 bottom-0 z-40 border-t border-[#DCD2C1] bg-[#FDFAF3]/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 shadow-[0_-8px_24px_rgba(67,23,20,.06)] backdrop-blur-xl xl:hidden">
-        <div className="mx-auto grid max-w-xl grid-cols-4 gap-1">
+      <nav aria-label="Navigasi mobile" className={`fixed inset-x-0 bottom-0 z-40 border-t px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl xl:hidden ${role === "ADMIN" ? "border-[#263E36] bg-[#142A24]/97 shadow-[0_-8px_24px_rgba(20,42,36,.2)]" : "border-[#5A2A24] bg-[#431714]/97 shadow-[0_-8px_24px_rgba(67,23,20,.2)]"}`}>
+        <div className={`mx-auto grid max-w-xl gap-1 ${role === "UMKM" ? "grid-cols-5" : "grid-cols-4"}`}>
           {mobileNavItems.map((item) => {
             const Icon = icons[item.icon];
             const selected = active(item.href);
             return (
               <Link key={item.href} href={item.href} aria-current={selected ? "page" : undefined}
-                className={`relative flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[9px] font-bold transition-colors ${selected ? "text-[#93372A]" : "text-[#8C7C6B] hover:bg-[#F3EBDD]"}`}>
-                {selected && <span className="absolute -top-2 h-[2px] w-7 rounded-full bg-[#93372A]"/>}
+                className={`relative flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[9px] font-bold transition-colors ${role === "ADMIN" ? (selected ? "text-[#E5C58D]" : "text-[#B8C9BE] hover:bg-white/5") : (selected ? "text-[#E5C58D]" : "text-[#E9DCCB]/75 hover:bg-white/5")}`}>
+                {selected && <span className={`absolute -top-2 h-[2px] w-7 rounded-full ${role === "ADMIN" ? "bg-[#D8B77C]" : "bg-[#E5C58D]"}`}/>}
                 <Icon size={19} strokeWidth={1.7}/>
                 <span className="max-w-full truncate">{item.label}</span>
               </Link>
