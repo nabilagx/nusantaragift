@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity, BarChart3, Bell, Boxes, ClipboardList, FileText, Gift, Megaphone,
   LayoutDashboard, LogOut, Package, PackagePlus, Settings, ShieldCheck,
-  Store, Users, UserRound, CircleHelp, BadgeCheck, Wallet, Menu, X as CloseIcon,
+  Store, Users, UserRound, CircleHelp, BadgeCheck, Wallet,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -47,7 +47,6 @@ export default function DashboardShell({
   const pathname = usePathname();
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
   async function logout() {
     if (loggingOut) return;
@@ -117,7 +116,7 @@ export default function DashboardShell({
           <div className="flex h-[76px] items-center justify-between px-5">
             <Link href={home} className="min-w-0"><img src="/images/brand/LOGO.svg" alt="Nusantara Gift" className="h-10 w-[146px] object-contain object-left"/><span className={`mt-1 block text-[8px] font-bold tracking-[.12em] ${role === "ADMIN" ? "text-[#D8B77C]" : "text-[#C79854]"}`}>{mobileRole}</span></Link>
             <div className="flex items-center gap-2">
-              <span aria-hidden="true" className={`relative ${role === "ADMIN" ? "text-[#E5C58D]" : "text-[#431714]"}`}><Bell size={19} strokeWidth={1.7}/><span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-[#93372A]"/></span><button onClick={()=>setDrawerOpen(v=>!v)} aria-label="Buka menu" className={`rounded-full border p-2 ${role === "ADMIN" ? "border-[#8B5550] text-[#F5F1E7]" : "border-[#DCD2C1] text-[#431714]"}`}><Menu size={18}/></button>
+              <span aria-hidden="true" className={`relative ${role === "ADMIN" ? "text-[#E5C58D]" : "text-[#431714]"}`}><Bell size={19} strokeWidth={1.7}/><span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-[#93372A]"/></span>
               <button onClick={() => void logout()} disabled={loggingOut} aria-label="Keluar akun"
                 className="rounded-full border border-[#E5C58D] bg-[#93372A] p-2.5 text-white shadow-md transition hover:bg-[#76291F] disabled:cursor-wait disabled:opacity-60"><LogOut size={17} strokeWidth={2.4}/></button>
             </div>
@@ -130,10 +129,8 @@ export default function DashboardShell({
         </main>
       </div>
 
-      {drawerOpen && <div className="fixed inset-0 z-[60] xl:hidden"><button aria-label="Tutup menu" onClick={()=>setDrawerOpen(false)} className="absolute inset-0 bg-[#171D19]/55"/><aside className={`absolute right-0 top-0 flex h-full w-[min(88vw,360px)] flex-col p-5 shadow-2xl ${role === "ADMIN" ? "bg-[#431714] text-[#F5F1E7]" : "bg-[#FDFAF3]"}`}><div className="flex items-center justify-between border-b border-[#DCD2C1] pb-4"><img src="/images/brand/LOGO.svg" alt="Nusantara Gift" className="h-10 w-36 object-contain object-left"/><button onClick={()=>setDrawerOpen(false)} aria-label="Tutup menu" className="rounded-full p-2 text-[#431714]"><CloseIcon size={20}/></button></div><p className="mt-5 text-[9px] font-bold tracking-[.16em] text-[#C79854]">{roleLabel}</p><nav className="mt-3 space-y-1">{navItems.map(item=>{const Icon=icons[item.icon];return <Link key={item.href} href={item.href} onClick={()=>setDrawerOpen(false)} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-[12px] font-semibold ${active(item.href)?"bg-[#431714] text-white":"text-[#66584B] hover:bg-[#F3EBDD]"}`}><Icon size={17}/>{item.label}</Link>})}</nav><div className="mt-auto border-t border-[#DCD2C1] pt-4"><p className="text-[10px] font-bold text-[#431714]">{role==="ADMIN"?"Administrator":"Akun artisan"}</p><p className="mt-1 text-[9px] text-[#7A6C5E]">{mobileRole}</p></div></aside></div>}
-
       <nav aria-label="Navigasi mobile" className={`fixed inset-x-0 bottom-0 z-40 border-t px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl xl:hidden ${role === "ADMIN" ? "border-[#5A2A24] bg-[#431714]/97 shadow-[0_-8px_24px_rgba(20,42,36,.2)]" : "border-[#5A2A24] bg-[#431714]/97 shadow-[0_-8px_24px_rgba(67,23,20,.2)]"}`}>
-        <div className={`mx-auto grid max-w-xl gap-1 ${role === "UMKM" ? "grid-cols-5" : "grid-cols-4"}`}>
+        <div className={`mx-auto grid max-w-xl gap-1 ${"grid-cols-5"}`}>
           {mobileNavItems.map((item) => {
             const Icon = icons[item.icon];
             const selected = active(item.href);
