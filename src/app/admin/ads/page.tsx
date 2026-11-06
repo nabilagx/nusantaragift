@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, Clock3, Image as ImageIcon, Megaphone, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock3, Image as ImageIcon, Megaphone, PauseCircle, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 import DashboardShell, { type DashboardNavItem } from "@/components/dashboard/DashboardShell";
 
 type Product = { id: string; name: string; price: number; stock: number; status: string; metadata: Record<string, unknown> | null };
