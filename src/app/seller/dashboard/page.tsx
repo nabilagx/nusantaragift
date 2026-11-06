@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertCircle, ArrowRight, BarChart3, Boxes, CheckCircle2, Clock3, ImagePlus,
+  AlertCircle, ArrowRight, ArrowUpRight, BarChart3, Boxes, CheckCircle2, Clock3, ImagePlus,
   Package, PackageCheck, PackagePlus, RefreshCw, ShoppingBag, Sparkles, Store, Truck, Wallet,
   type LucideIcon,
 } from "lucide-react";
