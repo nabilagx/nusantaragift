@@ -43,11 +43,11 @@ export default function ShopBannerCarousel() {
       {isPromotion ? <>
         <img src={(slide as Promotion).image_url} alt="" className="absolute inset-0 h-full w-full object-cover"/>
         <div className="absolute inset-0 bg-gradient-to-r from-[#24100E]/95 via-[#24100E]/75 to-[#24100E]/10"/>
-        <div className="relative z-10 max-w-[78%] px-8 py-8 sm:max-w-[65%] sm:px-12">
+        <div className="relative z-10 max-w-[78%] px-8 py-4 sm:max-w-[65%] sm:px-12 sm:py-8">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[9px] font-bold tracking-[.16em]"><Megaphone size={12}/> IKLAN PILIHAN UMKM</span>
-          <h2 className="mt-3 line-clamp-2 break-words font-quicksand text-xl font-bold leading-tight sm:text-3xl">{slide.title}</h2>
-          <p className="mt-2 line-clamp-2 max-w-[380px] break-words text-[11px] leading-relaxed text-white/85 sm:text-sm">{slide.description}</p>
-          <Link href={`/campaign/${(slide as Promotion).id}`} className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#F3EBDD] px-4 py-2.5 text-[10px] font-bold text-[#7B2925] shadow-md transition hover:bg-white sm:text-xs">Lihat {(slide as Promotion).products.length} produk <ArrowRight size={14}/></Link>
+          <h2 className="mt-2 line-clamp-2 break-words font-quicksand text-lg font-bold leading-[1.1] sm:mt-3 sm:text-3xl sm:leading-tight">{slide.title}</h2>
+          <p className="mt-1.5 line-clamp-2 max-w-[380px] break-words text-[10px] leading-[1.25] text-white/85 sm:mt-2 sm:text-sm sm:leading-relaxed">{slide.description}</p>
+          <Link href={`/campaign/${(slide as Promotion).id}`} className="mt-2 inline-flex items-center gap-2 rounded-full bg-[#F3EBDD] px-3 py-1.5 text-[9px] font-bold text-[#7B2925] shadow-md transition hover:bg-white sm:mt-4 sm:px-4 sm:py-2.5 sm:text-xs">Lihat {(slide as Promotion).products.length} produk <ArrowRight size={14}/></Link>
         </div>
       </> : <>
         <div className="relative z-10 max-w-[75%] px-8 py-7 sm:px-12">
