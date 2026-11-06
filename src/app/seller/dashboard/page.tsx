@@ -169,8 +169,9 @@ export default function SellerDashboardPage() {
   const bestSeller = Object.values(orders.flatMap(o => o.items).reduce<Record<string, { name: string; quantity: number }>>((acc, item) => {
     const key = item.product_name; acc[key] ??= { name: key, quantity: 0 }; acc[key].quantity += item.quantity; return acc;
   }, {})).sort((a, b) => b.quantity - a.quantity)[0];
+  const latestPaidTimestamp = paid.reduce((latest, order) => Math.max(latest, new Date(order.created_at).getTime()), 0);
   const weekly = Array.from({ length: 4 }, (_, index) => {
-    const end = new Date(); end.setHours(23, 59, 59, 999); end.setDate(end.getDate() - (3 - index) * 7);
+    const end = new Date(latestPaidTimestamp); end.setHours(23, 59, 59, 999); end.setDate(end.getDate() - (3 - index) * 7);
     const start = new Date(end); start.setDate(start.getDate() - 6); start.setHours(0, 0, 0, 0);
     const amount = paid.filter(o => { const d = new Date(o.created_at); return d >= start && d <= end; })
       .reduce((sum, o) => sum + o.items.reduce((s, item) => s + item.line_total, 0), 0);
