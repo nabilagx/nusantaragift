@@ -94,6 +94,7 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", description: "", category: "cerita", price: "", stock: "1", imageUrl: "" });
+  const [editing, setEditing] = useState<SellerProduct | null>(null);
   const [orderFilter, setOrderFilter] = useState("all");
   const [productFilter, setProductFilter] = useState("all");
   const [shipping, setShipping] = useState<Record<string, { courier: string; tracking: string }>>({});
@@ -131,6 +132,45 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
     finally { setSaving(false); }
   }
 
+  async function changeProduct(id: string, action: "archive" | "restore" | "stock", delta?: number) {
+    setBusy(id); setError(""); setMessage("");
+    try {
+      const r = await fetch("/api/seller/products", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action, delta }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Produk gagal diperbarui.");
+      setMessage(action === "stock" ? "Stok berhasil diperbarui." : action === "archive" ? "Produk dipindahkan ke arsip. Admin telah menerima notifikasi." : "Produk dipulihkan ke antrean kurasi.");
+      await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Produk gagal diperbarui."); }
+    finally { setBusy(""); }
+  }
+
+  async function saveProductEdit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault(); if (!editing) return;
+    setSaving(true); setError(""); setMessage("");
+    try {
+      const r = await fetch("/api/seller/products", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editing.id, ...form, price: Number(form.price), stock: Number(form.stock) }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Perubahan produk gagal disimpan.");
+      setEditing(null); setMessage("Perubahan produk berhasil disimpan."); await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Perubahan produk gagal disimpan."); }
+    finally { setSaving(false); }
+  }
+
+  async function archiveProduct(id: string) {
+    if (!window.confirm("Arsipkan produk ini? Produk tidak lagi tampil di katalog, tetapi riwayatnya tetap tersimpan dan admin akan diberi notifikasi.")) return;
+    setBusy(id); setError(""); setMessage("");
+    try {
+      const r = await fetch("/api/seller/products", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Produk gagal diarsipkan.");
+      setMessage("Produk berhasil diarsipkan. Admin menerima notifikasi aktivitas ini."); await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Produk gagal diarsipkan."); }
+    finally { setBusy(""); }
+  }
+
+  function openEdit(product: SellerProduct) {
+    const summary = product.metadata?.summary as { type?: string } | undefined;
+    setEditing(product);
+    setForm({ name: product.name, description: product.description ?? "", category: summary?.type ?? "cerita", price: String(product.price), stock: String(product.stock), imageUrl: typeof product.metadata?.image === "string" ? product.metadata.image : "" });
+  }
+
   async function updateOrder(orderNumber: string, status: "processing" | "shipped") {
     const detail = shipping[orderNumber] ?? { courier: "", tracking: "" };
     if (status === "shipped" && (!detail.courier.trim() || !detail.tracking.trim())) {
@@ -163,7 +203,7 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
   ), [orders, orderFilter]);
   const filteredProducts = useMemo(() => products.filter(p =>
     productFilter === "all" || (productFilter === "active" && p.status === "active") ||
-    (productFilter === "pending" && p.status === "pending_review") || (productFilter === "rejected" && p.status === "rejected")
+    (productFilter === "pending" && p.status === "pending_review") || (productFilter === "rejected" && p.status === "rejected") || (productFilter === "archived" && p.status === "archived")
   ), [products, productFilter]);
   const latestOrders = [...orders].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)).slice(0, 4);
   const lowStock = activeProducts.filter(p => p.stock <= 5);
@@ -230,16 +270,37 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
         <Stat label="MENUNGGU KURASI" value={loading ? "—" : pendingProducts.length} note="Dalam antrean admin" icon={Clock3}/>
         <Stat label="STOK MENIPIS" value={loading ? "—" : lowStock.length} note="Maksimal 5 unit" icon={Boxes}/>
       </div>
+      {editing && <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#171D19]/60 p-4">
+        <form onSubmit={saveProductEdit} className="my-auto w-full max-w-2xl rounded-2xl border border-[#DCD2C1] bg-[#FDFAF3] p-5 shadow-2xl sm:p-7">
+          <div className="flex items-start justify-between gap-3 border-b border-[#DCD2C1] pb-4"><div><p className="text-[8px] font-bold tracking-[.16em] text-[#C79854]">PRODUCT MANAGEMENT</p><h3 className="mt-1 font-display text-[24px] text-[#431714]">Edit detail produk</h3><p className="mt-1 text-[9px] text-[#7A6C5E]">Perbarui informasi, harga, foto, dan stok produk.</p></div><button type="button" onClick={()=>setEditing(null)} className="rounded-full border border-[#DCD2C1] px-3 py-1.5 text-[10px]">Tutup</button></div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <label className="text-[9px] font-bold text-[#7A6C5E]">NAMA PRODUK<input required minLength={3} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white px-3 py-3 text-[11px] text-[#251E1A]"/></label>
+            <label className="text-[9px] font-bold text-[#7A6C5E]">KATEGORI<select value={form.category} onChange={e=>setForm({...form,category:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white px-3 py-3 text-[11px] text-[#251E1A]"><option value="cerita">Cerita</option><option value="rasa">Rasa</option><option value="budaya">Budaya</option></select></label>
+            <label className="text-[9px] font-bold text-[#7A6C5E]">HARGA (RP)<input required type="number" min="1" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white px-3 py-3 text-[11px] text-[#251E1A]"/></label>
+            <label className="text-[9px] font-bold text-[#7A6C5E]">STOK<input required type="number" min="0" value={form.stock} onChange={e=>setForm({...form,stock:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white px-3 py-3 text-[11px] text-[#251E1A]"/></label>
+            <label className="text-[9px] font-bold text-[#7A6C5E] sm:col-span-2">CERITA PRODUK<textarea required minLength={10} rows={4} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white px-3 py-3 text-[11px] text-[#251E1A]"/></label>
+            <label className="text-[9px] font-bold text-[#7A6C5E] sm:col-span-2">URL FOTO<input type="url" value={form.imageUrl} onChange={e=>setForm({...form,imageUrl:e.target.value})} placeholder="URL publik Google Drive / Imgur / gambar langsung" className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white px-3 py-3 text-[11px] text-[#251E1A]"/></label>
+          </div>
+          <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={()=>setEditing(null)} className="rounded-full border border-[#DCD2C1] px-4 py-2.5 text-[9px] font-bold text-[#7A6C5E]">Batal</button><button disabled={saving} className="rounded-full bg-[#431714] px-5 py-2.5 text-[9px] font-bold text-white disabled:opacity-50">{saving?"Menyimpan...":"Simpan perubahan"}</button></div>
+        </form>
+      </div>}
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.9fr_1fr]">
         <article className="rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5">
           <h3 className="font-display text-[20px] text-[#431714]">Semua produk</h3>
-          <div className="my-4 flex flex-wrap gap-2">{[{id:"all",label:"Semua"},{id:"active",label:"Tayang"},{id:"pending",label:"Review"},{id:"rejected",label:"Perlu revisi"}].map(f=><button key={f.id} onClick={()=>setProductFilter(f.id)} className={`rounded-full px-3 py-2 text-[9px] font-bold ${productFilter===f.id ? "bg-[#431714] text-white" : "border border-[#DCD2C1] text-[#7A6C5E]"}`}>{f.label}</button>)}</div>
+          <div className="my-4 flex flex-wrap gap-2">{[{id:"all",label:"Semua"},{id:"active",label:"Tayang"},{id:"pending",label:"Review"},{id:"rejected",label:"Perlu revisi"},{id:"archived",label:"Arsip"}].map(f=><button key={f.id} onClick={()=>setProductFilter(f.id)} className={`rounded-full px-3 py-2 text-[9px] font-bold ${productFilter===f.id ? "bg-[#431714] text-white" : "border border-[#DCD2C1] text-[#7A6C5E]"}`}>{f.label}</button>)}</div>
           <div className="hidden grid-cols-[1.4fr_.55fr_.8fr_.8fr] border-y border-[#DCD2C1] py-3 text-[8px] font-bold tracking-[.12em] text-[#7A6C5E] sm:grid"><span>NAMA PRODUK</span><span>STOK</span><span>HARGA</span><span>STATUS</span></div>
           {loading ? <p className="py-8 text-center text-[11px] text-[#7A6C5E]">Memuat katalog...</p> : filteredProducts.length === 0 ? <p className="py-10 text-center text-[11px] text-[#7A6C5E]">Belum ada produk pada kategori ini.</p> :
             filteredProducts.map(p => <div key={p.id} className="grid grid-cols-[1fr_auto] gap-3 border-b border-[#E8DFD2] py-3 sm:grid-cols-[1.4fr_.55fr_.8fr_.8fr] sm:items-center">
               <div className="flex min-w-0 items-center gap-3">{typeof p.metadata?.image === "string" && p.metadata.image ? <img src={imageUrl(p.metadata.image)} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover"/> : <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#F3EBDD] text-[#9A713A]"><Package size={17}/></span>}<div className="min-w-0"><p className="truncate text-[10px] font-semibold text-[#251E1A]">{p.name}</p><p className="text-[9px] text-[#7A6C5E] sm:hidden">{money(p.price)} · {p.stock} stok</p>{p.moderation_note && <p className="mt-1 line-clamp-1 text-[8px] text-[#93372A]">{p.moderation_note}</p>}</div></div>
               <span className="text-[10px] text-[#7A6C5E]">{p.stock}</span><span className="hidden text-[10px] text-[#7A6C5E] sm:block">{money(p.price)}</span>
-              <span className={`w-fit rounded-full px-2.5 py-1 text-[8px] font-bold ${statusClass(p.status)}`}>{labels[p.status] ?? p.status}</span>
+              <span className={`w-fit rounded-full px-2.5 py-1 text-[8px] font-bold ${statusClass(p.status)}`}>{p.status === "archived" ? "Diarsipkan" : (labels[p.status] ?? p.status)}</span>
+              <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-4">
+                <button disabled={busy===p.id} onClick={()=>openEdit(p)} className="rounded-full border border-[#DCD2C1] px-3 py-1.5 text-[8px] font-bold text-[#431714] hover:bg-[#F3EBDD]">Edit detail</button>
+                <button disabled={busy===p.id || p.stock===0 || p.status==="archived"} onClick={()=>void changeProduct(p.id,"stock",-1)} className="h-7 w-7 rounded-full border border-[#DCD2C1] text-[12px] font-bold disabled:opacity-30" aria-label="Kurangi stok">−</button>
+                <button disabled={busy===p.id || p.status==="archived"} onClick={()=>void changeProduct(p.id,"stock",1)} className="h-7 w-7 rounded-full border border-[#DCD2C1] text-[12px] font-bold disabled:opacity-30" aria-label="Tambah stok">+</button>
+                <span className="text-[8px] text-[#7A6C5E]">Atur stok cepat</span>
+                {p.status==="archived" ? <button disabled={busy===p.id} onClick={()=>void changeProduct(p.id,"restore")} className="ml-auto rounded-full bg-[#4F6E59] px-3 py-1.5 text-[8px] font-bold text-white">Pulihkan</button> : <button disabled={busy===p.id} onClick={()=>void archiveProduct(p.id)} className="ml-auto rounded-full border border-[#E6C7BD] px-3 py-1.5 text-[8px] font-bold text-[#93372A]">Arsipkan</button>}
+              </div>
             </div>)}
         </article>
         <aside className="rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5">
