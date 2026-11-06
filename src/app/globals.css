@@ -23,6 +23,7 @@
 
   --font-sans: var(--font-poppins);
   --font-quicksand: var(--font-quicksand);
+  --font-display: var(--font-dm-serif);
 }
 
 * {
