@@ -27,18 +27,18 @@ type Metrics = {
   totalSellers: number; activeSellers: number;
 };
 const nav: DashboardNavItem[] = [
-  { label: "Ringkasan", href: "/admin/dashboard#overview", icon: "overview" },
-  { label: "Verifikasi UMKM", href: "/admin/dashboard#verification", icon: "verification" },
-  { label: "Kurasi Produk", href: "/admin/dashboard#curation", icon: "curation" },
-  { label: "Pesanan & Pembayaran", href: "/admin/dashboard#orders", icon: "orders" },
-  { label: "Laporan Komunitas", href: "/admin/dashboard#reports", icon: "reports" },
-  { label: "Pengaturan", href: "/admin/dashboard#settings", icon: "settings" },
+  { label: "Ringkasan", href: "/admin/dashboard", icon: "overview" },
+  { label: "Verifikasi UMKM", href: "/admin/umkm", icon: "verification" },
+  { label: "Kurasi Produk", href: "/admin/products", icon: "curation" },
+  { label: "Pesanan & Pembayaran", href: "/admin/orders", icon: "orders" },
+  { label: "Laporan Komunitas", href: "/admin/reports", icon: "reports" },
+  { label: "Pengaturan", href: "/admin/settings", icon: "settings" },
 ];
 const mobileNav: DashboardNavItem[] = [
-  { label: "Beranda", href: "/admin/dashboard#overview", icon: "overview" },
-  { label: "UMKM", href: "/admin/dashboard#verification", icon: "verification" },
-  { label: "Kurasi", href: "/admin/dashboard#curation", icon: "curation" },
-  { label: "Akun", href: "/admin/dashboard#settings", icon: "settings" },
+  { label: "Beranda", href: "/admin/dashboard", icon: "overview" },
+  { label: "UMKM", href: "/admin/umkm", icon: "verification" },
+  { label: "Kurasi", href: "/admin/products", icon: "curation" },
+  { label: "Akun", href: "/admin/settings", icon: "settings" },
 ];
 const money = (n: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(n || 0));
 const date = (v: string) => new Date(v).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
@@ -66,7 +66,7 @@ function EditorialFooter() {
   </div>;
 }
 
-export default function AdminDashboardPage() {
+export default function AdminDashboardPage({ module = "overview" }: { module?: string }) {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -143,18 +143,19 @@ export default function AdminDashboardPage() {
     {error && <div role="alert" className="mb-5 flex items-start gap-3 rounded-xl border border-[#E6C7BD] bg-[#F8E9E5] p-3 text-[11px] text-[#93372A]"><AlertCircle size={16} className="shrink-0"/>{error}</div>}
     {message && <div role="status" className="mb-5 flex items-center gap-2 rounded-xl border border-[#C8D7C7] bg-[#EAF0E8] p-3 text-[11px] text-[#4F6E59]"><Check size={15}/>{message}</div>}
 
-    <section id="overview" className="scroll-mt-24">
+    {module === "overview" && (
+<section id="overview" className="scroll-mt-24">
       <PageIntro eyebrow="NUSANTARA GIFT · ADMINISTRATION" title={<><span className="hidden sm:inline">Menjaga kualitas setiap cerita</span><span className="sm:hidden">Curator desk</span></>} description={<><span className="hidden sm:inline">Pantau ekosistem, kepercayaan, dan kualitas pengalaman Nusantara Gift.</span><span className="sm:hidden">Jaga kualitas cerita dan pengalaman pelanggan.</span></>}
-        action={<div className="flex flex-wrap gap-2"><button onClick={()=>void load()} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-full border border-[#DCD2C1] bg-[#FDFAF3] px-4 text-[9px] font-bold text-[#7A6C5E] disabled:opacity-50"><RefreshCw size={13} className={loading?"animate-spin":""}/> Perbarui</button><a href="#verification" className="inline-flex h-10 items-center gap-2 rounded-full bg-[#431714] px-5 text-[9px] font-bold text-white">Buka pusat tinjauan <ArrowRight size={13}/></a></div>}/>
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        action={<div className="flex flex-wrap gap-2"><button onClick={()=>void load()} disabled={loading} className="inline-flex h-10 items-center gap-2 rounded-full border border-[#DCD2C1] bg-[#FDFAF3] px-4 text-[9px] font-bold text-[#7A6C5E] disabled:opacity-50"><RefreshCw size={13} className={loading?"animate-spin":""}/> Perbarui</button><a href="/admin/umkm" className="inline-flex h-10 items-center gap-2 rounded-full bg-[#431714] px-5 text-[9px] font-bold text-white">Buka pusat tinjauan <ArrowRight size={13}/></a></div>}/>
+      <div className="mb-5 overflow-hidden rounded-[16px] bg-[#17362B] px-5 py-5 text-white sm:px-7 sm:py-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-[8px] font-bold tracking-[.2em] text-[#D8B77C]">NUSANTARA GIFT · PLATFORM CONTROL</p><h3 className="mt-2 font-display text-[24px] sm:text-[30px]">Good morning, Curator.</h3><p className="mt-2 max-w-xl text-[10px] leading-5 text-[#C5D3C9]">Satu ruang kendali untuk menjaga kualitas mitra, katalog, dan transaksi Nusantara.</p></div><div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3"><p className="text-[8px] tracking-[.14em] text-[#D8B77C]">PLATFORM STATUS</p><p className="mt-1 text-[11px] font-bold">All systems operational</p></div></div></div><div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Stat label="UMKM AKTIF" value={loading ? "—" : metrics.activeSellers} note={`${pendingSellers.length} perlu ditinjau`} icon={Store}/>
         <Stat label="PRODUK TAYANG" value={loading ? "—" : metrics.activeProducts.toLocaleString("id-ID")} note={`${metrics.totalProducts} produk tercatat`} icon={Package}/>
         <Stat label="PESANAN BERJALAN" value={loading ? "—" : orders.filter(o=>!["completed","cancelled"].includes(o.order_status)).length} note={`${metrics.paidOrders} pembayaran berhasil`} icon={ShoppingBag}/>
         <Stat label="PERLU DITINJAU" value={loading ? "—" : pendingSellers.length + metrics.pendingProducts + awaiting.length} note="Prioritas hari ini" icon={Clock3}/>
       </div>
-      <div className="mt-4 grid gap-4 xl:grid-cols-[1.9fr_1fr]">
+      <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4"><Stat label="OMZET TEREKAM" value={loading ? "—" : money(metrics.revenue)} note="Pembayaran berhasil" icon={Wallet}/><Stat label="MENUNGGU ONGKIR" value={loading ? "—" : awaiting.length} note="Perlu penetapan admin" icon={Truck}/><Stat label="PRODUK DIKURASI" value={loading ? "—" : metrics.pendingProducts} note="Dalam antrean review" icon={ShieldCheck}/><Stat label="PESANAN SELESAI" value={loading ? "—" : orders.filter(o=>o.order_status==="completed").length} note="Berhasil diselesaikan" icon={BadgeCheck}/></div><div className="mt-4 grid gap-4 xl:grid-cols-[1.9fr_1fr]">
         <article className="min-h-[385px] rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5">
-          <div className="flex items-center justify-between gap-3"><h3 className="font-display text-[20px] text-[#431714]">Antrean prioritas</h3><a href="#verification" className="text-[9px] font-bold text-[#93372A]">Lihat semua <ArrowUpRight size={12} className="inline"/></a></div>
+          <div className="flex items-center justify-between gap-3"><h3 className="font-display text-[20px] text-[#431714]">Antrean prioritas</h3><a href="/admin/umkm" className="text-[9px] font-bold text-[#93372A]">Lihat semua <ArrowUpRight size={12} className="inline"/></a></div>
           <div className="mt-4 hidden grid-cols-[.8fr_1.4fr_.7fr_.8fr] border-y border-[#DCD2C1] py-3 text-[8px] font-bold tracking-[.12em] text-[#7A6C5E] sm:grid"><span>JENIS</span><span>NAMA</span><span>MASUK</span><span>STATUS</span></div>
           {loading ? <p className="py-8 text-center text-[11px] text-[#7A6C5E]">Memuat antrean...</p> : priorityRows.length === 0 ? <div className="py-12 text-center"><BadgeCheck size={25} className="mx-auto text-[#C7B69F]"/><p className="mt-3 text-[11px] text-[#7A6C5E]">Tidak ada pekerjaan prioritas saat ini.</p></div> :
             priorityRows.map((row, i)=><a key={`${row.kind}-${i}`} href={row.href} className="grid gap-1 border-b border-[#E8DFD2] py-4 text-[10px] transition hover:bg-[#F8F3E9] sm:grid-cols-[.8fr_1.4fr_.7fr_.8fr] sm:items-center sm:gap-3"><span className="font-semibold text-[#251E1A]">{row.kind}</span><span className="text-[#7A6C5E]">{row.name}</span><span className="text-[#7A6C5E]">{row.when}</span><span className="w-fit rounded-full bg-[#F6EFDF] px-2.5 py-1 text-[8px] font-bold text-[#9A713A]">{row.status}</span></a>)}
@@ -170,8 +171,10 @@ export default function AdminDashboardPage() {
       </div>
       <EditorialFooter/>
     </section>
+)}
 
-    <section id="verification" className="mt-12 scroll-mt-24">
+    {module === "verification" && (
+<section id="verification" className="mt-12 scroll-mt-24">
       <PageIntro eyebrow="NUSANTARA GIFT · PARTNER REVIEW" title="Para artisan di balik karya" description="Tinjau identitas, legalitas, dan cerita pelaku UMKM."/>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         <Stat label="MENUNGGU REVIEW" value={loading ? "—" : pendingSellers.length} note="Perlu ditinjau" icon={Clock3}/>
@@ -196,8 +199,10 @@ export default function AdminDashboardPage() {
       </div>
       <EditorialFooter/>
     </section>
+)}
 
-    <section id="curation" className="mt-12 scroll-mt-24">
+    {module === "curation" && (
+<section id="curation" className="mt-12 scroll-mt-24">
       <PageIntro eyebrow="NUSANTARA GIFT · CATALOG QUALITY" title="Kurasi dengan penuh perhatian" description="Pastikan produk memenuhi standar kualitas dan cerita autentik." action={<span className="rounded-full bg-[#F6EFDF] px-4 py-2 text-[9px] font-bold text-[#9A713A]">{products.length} antrean aktif</span>}/>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         <Stat label="MENUNGGU KURASI" value={loading ? "—" : metrics.pendingProducts} note="Antrean aktif" icon={Clock3}/>
@@ -221,8 +226,10 @@ export default function AdminDashboardPage() {
       </div>
       <EditorialFooter/>
     </section>
+)}
 
-    <section id="orders" className="mt-12 scroll-mt-24">
+    {module === "orders" && (
+<section id="orders" className="mt-12 scroll-mt-24">
       <PageIntro eyebrow="NUSANTARA GIFT · TRANSACTION OPERATIONS" title="Transparansi setiap transaksi" description="Awasi alur pembayaran, pesanan, dan penyelesaian transaksi."/>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         <Stat label="NILAI TRANSAKSI" value={loading ? "—" : money(metrics.revenue)} note={`${metrics.paidOrders} pembayaran berhasil`} icon={Wallet}/>
@@ -241,8 +248,10 @@ export default function AdminDashboardPage() {
       </div>
       <EditorialFooter/>
     </section>
+)}
 
-    <section id="reports" className="mt-12 scroll-mt-24">
+    {module === "reports" && (
+<section id="reports" className="mt-12 scroll-mt-24">
       <PageIntro eyebrow="NUSANTARA GIFT · COMMUNITY CARE" title="Merawat ruang yang tepercaya" description="Tindak lanjuti masukan agar komunitas tetap aman dan saling menghargai."/>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         <Stat label="LAPORAN TERBUKA" value="—" note="Sumber laporan belum terhubung" icon={FileText}/>
@@ -256,8 +265,10 @@ export default function AdminDashboardPage() {
       </div>
       <EditorialFooter/>
     </section>
+)}
 
-    <section id="settings" className="mt-12 scroll-mt-24">
+    {module === "settings" && (
+<section id="settings" className="mt-12 scroll-mt-24">
       <PageIntro eyebrow="NUSANTARA GIFT · PLATFORM GOVERNANCE" title="Standar operasional platform" description="Atur preferensi kurasi, keamanan, dan informasi operasional."/>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         <Stat label="PERAN ADMIN" value="Admin" note="Akses terautentikasi" icon={ShieldCheck}/>
@@ -273,5 +284,6 @@ export default function AdminDashboardPage() {
       </div>
       <EditorialFooter/>
     </section>
+)}
   </DashboardShell>;
 }
