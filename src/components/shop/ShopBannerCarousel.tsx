@@ -45,15 +45,15 @@ export default function ShopBannerCarousel() {
         <div className="absolute inset-0 bg-gradient-to-r from-[#24100E]/95 via-[#24100E]/75 to-[#24100E]/10"/>
         <div className="relative z-10 max-w-[78%] px-8 py-8 sm:max-w-[65%] sm:px-12">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[9px] font-bold tracking-[.16em]"><Megaphone size={12}/> IKLAN PILIHAN UMKM</span>
-          <h2 className="mt-3 font-quicksand text-xl font-bold leading-tight sm:text-3xl">{slide.title}</h2>
-          <p className="mt-2 max-w-[380px] text-[11px] leading-relaxed text-white/85 sm:text-sm">{slide.description}</p>
+          <h2 className="mt-3 line-clamp-2 break-words font-quicksand text-xl font-bold leading-tight sm:text-3xl">{slide.title}</h2>
+          <p className="mt-2 line-clamp-2 max-w-[380px] break-words text-[11px] leading-relaxed text-white/85 sm:text-sm">{slide.description}</p>
           <Link href={`/campaign/${(slide as Promotion).id}`} className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#F3EBDD] px-4 py-2.5 text-[10px] font-bold text-[#7B2925] shadow-md transition hover:bg-white sm:text-xs">Lihat {(slide as Promotion).products.length} produk <ArrowRight size={14}/></Link>
         </div>
       </> : <>
         <div className="relative z-10 max-w-[75%] px-8 py-7 sm:px-12">
           <p className="text-[9px] font-semibold tracking-[0.22em] text-white/70 sm:text-[11px]">{(slide as typeof editorialSlides[number]).eyebrow}</p>
-          <h2 className="mt-2 font-quicksand text-xl font-bold leading-tight sm:text-3xl">{(slide as typeof editorialSlides[number]).title}</h2>
-          <p className="mt-2 max-w-[340px] text-[11px] leading-relaxed text-white/80 sm:text-sm">{(slide as typeof editorialSlides[number]).description}</p>
+          <h2 className="mt-2 line-clamp-2 break-words font-quicksand text-xl font-bold leading-tight sm:text-3xl">{(slide as typeof editorialSlides[number]).title}</h2>
+          <p className="mt-2 line-clamp-2 max-w-[340px] break-words text-[11px] leading-relaxed text-white/80 sm:text-sm">{(slide as typeof editorialSlides[number]).description}</p>
         </div>
         <span aria-hidden="true" className="absolute -right-4 -top-10 select-none text-[190px] leading-none text-white/[0.09] sm:-right-1 sm:text-[230px]">{(slide as typeof editorialSlides[number]).decoration}</span>
       </>}
