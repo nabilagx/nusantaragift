@@ -159,11 +159,11 @@ export default function SellerAdsPage() {
           <div className="relative flex h-[180px] items-center overflow-hidden bg-[#431714] text-white sm:h-[250px]">
             <img src={imageUrl} alt="Pratinjau banner iklan" className="absolute inset-0 h-full w-full object-cover" onError={e=>{e.currentTarget.style.display="none"}}/>
             <div className="absolute inset-0 bg-gradient-to-r from-[#24100E]/95 via-[#24100E]/75 to-[#24100E]/10"/>
-            <div className="relative z-10 max-w-[78%] px-8 py-6 sm:max-w-[65%] sm:px-12">
+            <div className="relative z-10 max-w-[78%] px-8 py-4 sm:max-w-[65%] sm:px-12 sm:py-8">
               <span className="inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[9px] font-bold tracking-[.16em]">IKLAN PILIHAN UMKM</span>
-              <h3 className="mt-3 line-clamp-2 break-words font-quicksand text-xl font-bold leading-tight text-white sm:text-3xl">{title || "Judul iklan kamu"}</h3>
-              <p className="mt-2 line-clamp-2 max-w-[380px] break-words text-[11px] leading-relaxed text-white/85 sm:text-sm">{description || "Deskripsi singkat produk yang ingin kamu tampilkan."}</p>
-              <span className="mt-4 inline-flex rounded-full bg-[#F3EBDD] px-4 py-2.5 text-[10px] font-bold text-[#7B2925] sm:text-xs">Lihat produk pilihan</span>
+              <h3 className="mt-2 line-clamp-2 break-words font-quicksand text-lg font-bold leading-[1.1] text-white sm:mt-3 sm:text-3xl sm:leading-tight">{title || "Judul iklan kamu"}</h3>
+              <p className="mt-1.5 line-clamp-2 max-w-[380px] break-words text-[10px] leading-[1.25] text-white/85 sm:mt-2 sm:text-sm sm:leading-relaxed">{description || "Deskripsi singkat produk yang ingin kamu tampilkan."}</p>
+              <span className="mt-2 inline-flex rounded-full bg-[#F3EBDD] px-3 py-1.5 text-[9px] font-bold text-[#7B2925] sm:mt-4 sm:px-4 sm:py-2.5 sm:text-xs">Lihat produk pilihan</span>
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-[9px] text-[#7A6C5E]"><span>Preview responsif: HP & desktop</span><span>Teks panjang otomatis menjadi …</span></div>
