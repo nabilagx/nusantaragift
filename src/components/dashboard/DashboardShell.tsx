@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useState, type ComponentType } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   Activity, BarChart3, Bell, Boxes, ClipboardList, FileText, Gift,
   LayoutDashboard, LogOut, Package, PackagePlus, Settings, ShieldCheck,
@@ -44,7 +44,6 @@ export default function DashboardShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
