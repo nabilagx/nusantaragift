@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createSnapTransaction } from "@/lib/midtrans/config";
 
-export const runtime = "nodejs";
 
 type OrderRow = {
   id: string;
