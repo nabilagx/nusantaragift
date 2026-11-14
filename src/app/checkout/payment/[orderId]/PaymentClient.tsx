@@ -38,6 +38,7 @@ export default function PaymentClient({ orderId }: { orderId: string }) {
     let active = true;
     const load = async () => {
       try {
+        await fetch("/api/orders/" + encodeURIComponent(orderId) + "/refresh-payment", { method: "POST", cache: "no-store" }).catch(() => null);
         const response = await fetch("/api/orders/" + encodeURIComponent(orderId), { cache: "no-store" });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Pesanan tidak ditemukan.");
