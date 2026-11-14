@@ -105,10 +105,7 @@ export async function PUT(request: Request) {
     status: "pending_review", description: typeof body.description === "string" ? body.description.trim() : undefined, updated_at: new Date().toISOString(),
     metadata: { story_category: body.category, region: "Indonesia", image: "", imageAlt: "Cerita Nusantara", size: rows.length + " halaman", summary: { type: "Cerita digital", format: "Buku cerita audio", unlock: "Gratis" } },
   }).eq("id", productId).eq("seller_id", auth.user.id);
-  if (updateError) {
-    await auth.supabase.from("story_pages").delete().eq("product_id", productId);
-    return fail("Cerita belum berhasil dikirim ke antrean admin.", 500);
-  }
+  if (updateError) return fail("Cerita belum berhasil dikirim ke antrean admin.", 500);
   return NextResponse.json({ success: true, message: "Cerita berhasil dikirim untuk ditinjau admin." });
 }
 
