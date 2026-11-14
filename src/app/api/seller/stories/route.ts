@@ -1,32 +1,33 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export const runtime = "nodejs";
-const MAX_FILE = 15 * 1024 * 1024;
-const imageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-const audioTypes = new Set(["audio/mpeg", "audio/mp4", "audio/wav", "audio/x-m4a", "audio/aac"]);
-const slugify = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-
-function jsonError(message: string, status = 400) {
-  return NextResponse.json({ error: message }, { status });
-}
-
-export async function GET() {
+function fail(message: string, status = 400) { return NextResponse.json({ error: message }, { status }); }
+async function sellerClient() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return jsonError("Silakan login terlebih dahulu.", 401);
-  const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).maybeSingle();
-  if (profile?.role_id !== "umkm") return jsonError("Fitur ini khusus akun UMKM.", 403);
-  const { data, error } = await supabase.from("products")
+  if (!user) return { supabase, user: null, error: fail("Silakan login terlebih dahulu.", 401) };
+  const { data: profile, error: profileError } = await supabase.from("profiles").select("role_id").eq("id", user.id).maybeSingle();
+  if (profileError) return { supabase, user: null, error: fail("Gagal memverifikasi akun.", 500) };
+  if (profile?.role_id !== "umkm") return { supabase, user: null, error: fail("Fitur ini khusus akun UMKM.", 403) };
+  const { data: seller, error: sellerError } = await supabase.from("seller_profiles").select("status").eq("user_id", user.id).maybeSingle();
+  if (sellerError) return { supabase, user: null, error: fail("Gagal memverifikasi toko UMKM.", 500) };
+  if (seller?.status !== "approved") return { supabase, user: null, error: fail("Toko UMKM harus berstatus disetujui.", 403) };
+  return { supabase, user, error: null };
+}
+const slugify = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+export async function GET() {
+  const auth = await sellerClient();
+  if (auth.error || !auth.user) return auth.error ?? fail("Silakan login.", 401);
+  const { data, error } = await auth.supabase.from("products")
     .select("id,slug,name,description,status,moderation_note,created_at,story_pages(id,page_number,page_title,body,illustration_url,audio_url,audio_duration_seconds)")
-    .eq("seller_id", user.id).eq("delivery_type", "digital-audio")
-    .order("created_at", { ascending: false });
-  if (error) return jsonError("Gagal memuat cerita UMKM.", 500);
+    .eq("seller_id", auth.user.id).eq("delivery_type", "digital-audio").order("created_at", { ascending: false });
+  if (error) return fail("Gagal memuat cerita UMKM.", 500);
   const stories = await Promise.all((data ?? []).map(async (story) => {
     const pages = await Promise.all((story.story_pages ?? []).map(async (page: { illustration_url: string; audio_url: string; [key: string]: unknown }) => {
       const [image, audio] = await Promise.all([
-        supabase.storage.from("story-media").createSignedUrl(page.illustration_url, 3600),
-        supabase.storage.from("story-media").createSignedUrl(page.audio_url, 3600),
+        auth.supabase.storage.from("story-media").createSignedUrl(page.illustration_url, 3600),
+        auth.supabase.storage.from("story-media").createSignedUrl(page.audio_url, 3600),
       ]);
       return { ...page, illustration_url: image.data?.signedUrl ?? "", audio_url: audio.data?.signedUrl ?? "" };
     }));
@@ -35,82 +36,85 @@ export async function GET() {
   return NextResponse.json({ stories });
 }
 
+// Create a draft first. Files are uploaded directly from the browser to Storage,
+// avoiding serverless request-body limits for audio recordings.
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return jsonError("Silakan login terlebih dahulu.", 401);
-  const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).maybeSingle();
-  if (profile?.role_id !== "umkm") return jsonError("Fitur ini khusus akun UMKM.", 403);
-  const { data: seller } = await supabase.from("seller_profiles").select("status").eq("user_id", user.id).maybeSingle();
-  if (seller?.status !== "approved") return jsonError("Toko UMKM harus berstatus disetujui sebelum mengirim cerita.", 403);
-
-  const form = await request.formData();
-  const title = String(form.get("title") ?? "").trim();
-  const description = String(form.get("description") ?? "").trim();
-  const category = String(form.get("category") ?? "budaya").trim();
-  let pageInput: unknown;
-  try { pageInput = JSON.parse(String(form.get("pages") ?? "[]")); } catch { return jsonError("Format halaman cerita tidak valid."); }
-  if (title.length < 3 || title.length > 120 || description.length < 20 || description.length > 2000) return jsonError("Judul harus 3–120 karakter dan deskripsi 20–2.000 karakter.");
-  if (!["budaya", "dongeng", "inspirasi", "sejarah", "edukasi"].includes(category)) return jsonError("Kategori cerita tidak valid.");
-  if (!Array.isArray(pageInput) || pageInput.length < 1 || pageInput.length > 20) return jsonError("Cerita harus memiliki 1–20 halaman.");
-
-  const pages = pageInput as { title?: unknown; body?: unknown; duration?: unknown }[];
-  const files: { image: File; audio: File; title: string; body: string; duration: number | null }[] = [];
-  for (let i = 0; i < pages.length; i++) {
-    const page = pages[i];
-    const pageTitle = typeof page.title === "string" ? page.title.trim() : "";
-    const body = typeof page.body === "string" ? page.body.trim() : "";
-    const image = form.get("image-" + i);
-    const audio = form.get("audio-" + i);
-    if (body.length < 10 || body.length > 5000) return jsonError("Teks halaman " + (i + 1) + " harus 10–5.000 karakter.");
-    if (!(image instanceof File) || !imageTypes.has(image.type) || image.size > MAX_FILE) return jsonError("Ilustrasi halaman " + (i + 1) + " harus JPG, PNG, atau WebP maksimal 15 MB.");
-    if (!(audio instanceof File) || !audioTypes.has(audio.type) || audio.size > MAX_FILE) return jsonError("Audio halaman " + (i + 1) + " harus MP3, M4A, AAC, atau WAV maksimal 15 MB.");
-    const duration = Number(page.duration);
-    files.push({ image, audio, title: pageTitle, body, duration: Number.isFinite(duration) && duration > 0 ? Math.round(duration) : null });
-  }
-
-  const { data: categoryRow } = await supabase.from("categories").select("id").eq("slug", "cerita").maybeSingle();
-  if (!categoryRow) return jsonError("Kategori Cerita belum tersedia pada database.", 500);
+  const auth = await sellerClient();
+  if (auth.error || !auth.user) return auth.error ?? fail("Silakan login.", 401);
+  const body = await request.json().catch(() => ({}));
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  const description = typeof body.description === "string" ? body.description.trim() : "";
+  const category = typeof body.category === "string" ? body.category : "";
+  if (title.length < 3 || title.length > 120 || description.length < 20 || description.length > 2000) return fail("Judul harus 3–120 karakter dan deskripsi 20–2.000 karakter.");
+  if (!["budaya", "dongeng", "inspirasi", "sejarah", "edukasi"].includes(category)) return fail("Kategori cerita tidak valid.");
+  const { data: categoryRow } = await auth.supabase.from("categories").select("id").eq("slug", "cerita").maybeSingle();
+  if (!categoryRow) return fail("Kategori Cerita belum tersedia pada database.", 500);
   const slug = slugify(title) + "-" + crypto.randomUUID().slice(0, 8);
-  const { data: product, error: productError } = await supabase.from("products").insert({
-    seller_id: user.id, category_id: categoryRow.id, name: title, slug, description,
+  const { data, error } = await auth.supabase.from("products").insert({
+    seller_id: auth.user.id, category_id: categoryRow.id, name: title, slug, description,
     price: 0, stock: 0, sku: "STORY-" + crypto.randomUUID().slice(0, 8).toUpperCase(),
     is_gift_card_enabled: false, status: "draft", delivery_type: "digital-audio",
-    metadata: { story_category: category, region: "Indonesia", image: "", imageAlt: title, size: files.length + " halaman", summary: { type: "Cerita digital", format: "Buku cerita audio", unlock: "Gratis" } },
+    metadata: { story_category: category, region: "Indonesia", image: "", imageAlt: title, size: "0 halaman", summary: { type: "Cerita digital", format: "Buku cerita audio", unlock: "Gratis" } },
   }).select("id,slug").single();
-  if (productError || !product) {
-    console.error("Create story product:", productError);
-    return jsonError("Cerita gagal dibuat. Periksa konfigurasi kategori dan database.", 500);
+  if (error || !data) {
+    console.error("Create story draft:", error);
+    return fail("Draft cerita gagal dibuat.", 500);
   }
+  return NextResponse.json({ productId: data.id, slug: data.slug }, { status: 201 });
+}
 
-  const uploaded: string[] = [];
-  try {
-    const rows = [];
-    for (let i = 0; i < files.length; i++) {
-      const item = files[i];
-      const imageExt = item.image.type === "image/png" ? "png" : item.image.type === "image/webp" ? "webp" : "jpg";
-      const audioExt = item.audio.type === "audio/mpeg" ? "mp3" : item.audio.type === "audio/wav" ? "wav" : item.audio.type === "audio/aac" ? "aac" : "m4a";
-      const imagePath = user.id + "/" + product.id + "/" + (i + 1) + "-illustration-" + crypto.randomUUID() + "." + imageExt;
-      const audioPath = user.id + "/" + product.id + "/" + (i + 1) + "-narration-" + crypto.randomUUID() + "." + audioExt;
-      const [imageUpload, audioUpload] = await Promise.all([
-        supabase.storage.from("story-media").upload(imagePath, item.image, { contentType: item.image.type, upsert: false }),
-        supabase.storage.from("story-media").upload(audioPath, item.audio, { contentType: item.audio.type, upsert: false }),
-      ]);
-      if (imageUpload.error) throw new Error("Upload ilustrasi halaman " + (i + 1) + " gagal: " + imageUpload.error.message);
-      uploaded.push(imagePath);
-      if (audioUpload.error) throw new Error("Upload audio halaman " + (i + 1) + " gagal: " + audioUpload.error.message);
-      uploaded.push(audioPath);
-      rows.push({ product_id: product.id, page_number: i + 1, page_title: item.title || null, body: item.body, illustration_url: imagePath, audio_url: audioPath, audio_duration_seconds: item.duration });
-    }
-    const { error: pageError } = await supabase.from("story_pages").insert(rows);
-    if (pageError) throw new Error("Halaman cerita gagal disimpan: " + pageError.message);
-    const { error: updateError } = await supabase.from("products").update({ status: "pending_review", updated_at: new Date().toISOString() }).eq("id", product.id).eq("seller_id", user.id);
-    if (updateError) throw new Error("Cerita tersimpan tetapi gagal dikirim ke antrean admin.");
-    return NextResponse.json({ success: true, slug: product.slug, message: "Cerita berhasil dikirim untuk ditinjau admin." }, { status: 201 });
-  } catch (error) {
-    await supabase.storage.from("story-media").remove(uploaded);
-    await supabase.from("products").delete().eq("id", product.id).eq("seller_id", user.id);
-    console.error("Story upload:", error);
-    return jsonError(error instanceof Error ? error.message : "Cerita gagal disimpan.", 500);
+// Commit uploaded page paths and move the story to the admin moderation queue.
+export async function PUT(request: Request) {
+  const auth = await sellerClient();
+  if (auth.error || !auth.user) return auth.error ?? fail("Silakan login.", 401);
+  const body = await request.json().catch(() => ({}));
+  const productId = typeof body.productId === "string" ? body.productId : "";
+  const pages = body.pages;
+  if (!productId || !Array.isArray(pages) || pages.length < 1 || pages.length > 20) return fail("Data halaman cerita tidak valid.");
+  const { data: product, error: productError } = await auth.supabase.from("products")
+    .select("id,status,delivery_type").eq("id", productId).eq("seller_id", auth.user.id).maybeSingle();
+  if (productError || !product || product.delivery_type !== "digital-audio" || product.status !== "draft") return fail("Draft cerita tidak ditemukan atau sudah diproses.", 404);
+
+  const rows = [];
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i] as Record<string, unknown>;
+    const title = typeof page.title === "string" ? page.title.trim().slice(0, 120) : "";
+    const text = typeof page.body === "string" ? page.body.trim() : "";
+    const imagePath = typeof page.illustration_url === "string" ? page.illustration_url : "";
+    const audioPath = typeof page.audio_url === "string" ? page.audio_url : "";
+    const expectedPrefix = auth.user.id + "/" + productId + "/";
+    if (text.length < 10 || text.length > 5000 || !imagePath.startsWith(expectedPrefix) || !audioPath.startsWith(expectedPrefix)) return fail("Isi atau lokasi media halaman " + (i + 1) + " tidak valid.");
+    const [image, audio] = await Promise.all([
+      auth.supabase.storage.from("story-media").createSignedUrl(imagePath, 60),
+      auth.supabase.storage.from("story-media").createSignedUrl(audioPath, 60),
+    ]);
+    if (image.error || audio.error) return fail("Ilustrasi atau audio halaman " + (i + 1) + " belum berhasil diunggah.");
+    const duration = Number(page.duration);
+    rows.push({ product_id: productId, page_number: i + 1, page_title: title || null, body: text, illustration_url: imagePath, audio_url: audioPath, audio_duration_seconds: Number.isFinite(duration) && duration > 0 ? Math.round(duration) : null });
   }
+  const { error: insertError } = await auth.supabase.from("story_pages").insert(rows);
+  if (insertError) {
+    console.error("Insert story pages:", insertError);
+    return fail("Halaman cerita gagal disimpan.", 500);
+  }
+  const { error: updateError } = await auth.supabase.from("products").update({
+    status: "pending_review", updated_at: new Date().toISOString(),
+    metadata: { story_category: body.category, region: "Indonesia", image: "", imageAlt: "Cerita Nusantara", size: rows.length + " halaman", summary: { type: "Cerita digital", format: "Buku cerita audio", unlock: "Gratis" } },
+  }).eq("id", productId).eq("seller_id", auth.user.id);
+  if (updateError) {
+    await auth.supabase.from("story_pages").delete().eq("product_id", productId);
+    return fail("Cerita belum berhasil dikirim ke antrean admin.", 500);
+  }
+  return NextResponse.json({ success: true, message: "Cerita berhasil dikirim untuk ditinjau admin." });
+}
+
+export async function DELETE(request: Request) {
+  const auth = await sellerClient();
+  if (auth.error || !auth.user) return auth.error ?? fail("Silakan login.", 401);
+  const body = await request.json().catch(() => ({}));
+  const productId = typeof body.productId === "string" ? body.productId : "";
+  if (!productId) return fail("ID draft tidak valid.");
+  const { error } = await auth.supabase.from("products").delete().eq("id", productId).eq("seller_id", auth.user.id).eq("delivery_type", "digital-audio").eq("status", "draft");
+  if (error) return fail("Draft cerita gagal dibersihkan.", 500);
+  return NextResponse.json({ success: true });
 }
