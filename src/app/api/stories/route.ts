@@ -11,7 +11,8 @@ export async function GET() {
   const stories = await Promise.all((data ?? []).map(async (story) => {
     const pages = (story.story_pages ?? []).sort((a, b) => Number(a.page_number) - Number(b.page_number));
     const first = pages[0];
-    const cover = first?.illustration_url ?? "";
+    const metadata = story.metadata as Record<string, unknown> | null;
+    const cover = typeof metadata?.image === "string" && metadata.image ? metadata.image : first?.illustration_url ?? "";
     return { id: story.id, slug: story.slug, title: story.name, description: story.description ?? "", price: Number(story.price ?? 0), stock: Number(story.stock ?? 0), category: String((story.metadata as Record<string, unknown> | null)?.story_category ?? "budaya"), pageCount: pages.length, cover, createdAt: story.created_at };
   }));
   return NextResponse.json({ stories });
