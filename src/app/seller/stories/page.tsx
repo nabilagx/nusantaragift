@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import DashboardShell, { type DashboardNavItem } from "@/components/dashboard/DashboardShell";
 
 type PageDraft = { title: string; body: string; imageUrl: string; audio: File | null; audioPreview: string; imagePreview: string; duration: number | null; audioPath?: string };
-type Story = { id: string; slug: string; name: string; description: string | null; status: string; moderation_note: string | null; metadata?: Record<string, unknown>; pages: { page_number: number; page_title: string | null; body: string; illustration_url: string; audio_url: string; illustration_path: string; audio_path: string; audio_duration_seconds: number | null }[] };
+type Story = { id: string; slug: string; name: string; description: string | null; price: number; stock: number; status: string; moderation_note: string | null; metadata?: Record<string, unknown>; pages: { page_number: number; page_title: string | null; body: string; illustration_url: string; audio_url: string; illustration_path: string; audio_path: string; audio_duration_seconds: number | null }[] };
 const nav: DashboardNavItem[] = [
  {label:"Ringkasan",href:"/seller/dashboard",icon:"overview"},
  {label:"Katalog Produk",href:"/seller/products",icon:"products"},
@@ -37,6 +37,10 @@ export default function SellerStoriesPage(){
  const [pages,setPages]=useState<PageDraft[]>([emptyPage()]);
  const [title,setTitle]=useState("");
  const [description,setDescription]=useState("");
+ const [price,setPrice]=useState("15000");
+ const [stock,setStock]=useState("25");
+ const [coverUrl,setCoverUrl]=useState("");
+ const [coverPreview,setCoverPreview]=useState("");
  const [category,setCategory]=useState("budaya");
  const [editingStoryId,setEditingStoryId]=useState<string|null>(null);
  const [editLoaded,setEditLoaded]=useState<string|null>(null);
@@ -68,7 +72,7 @@ export default function SellerStoriesPage(){
   if(!editId||editLoaded===editId||stories.length===0)return;
   const story=stories.find(item=>item.id===editId);
   if(!story)return;
-  setEditingStoryId(story.id);setTitle(story.name);setDescription(story.description??"");
+  setEditingStoryId(story.id);setTitle(story.name);setDescription(story.description??"");setPrice(String(story.price??15000));setStock(String(story.stock??1));const savedCover=typeof story.metadata?.image==="string"?story.metadata.image:"";setCoverUrl(savedCover);setCoverPreview(savedCover);
   setCategory(String(story.metadata?.story_category??"budaya"));
   setPages(story.pages.map(page=>({title:page.page_title??"",body:page.body,imageUrl:page.illustration_url,imagePreview:page.illustration_url,audio:null,audioPreview:page.audio_url,duration:page.audio_duration_seconds,audioPath:page.audio_path})));
   setEditLoaded(editId);
@@ -139,7 +143,7 @@ export default function SellerStoriesPage(){
    if(pages.some(p=>!p.body.trim()||!normalizeImageUrl(p.imageUrl)||(!p.audio&&!p.audioPath)))throw new Error("Setiap halaman wajib memiliki teks, URL ilustrasi HTTPS, dan rekaman audio. Lengkapi media yang belum tersedia.");
    let productId=editingStoryId??"";
    if(!productId){
-    const createResponse=await fetch("/api/seller/stories",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title,description,category})});
+    const createResponse=await fetch("/api/seller/stories",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title,description,category,price:Number(price),stock:Number(stock),coverUrl})});
     const created=await createResponse.json();if(!createResponse.ok)throw new Error(created.error||"Draft cerita gagal dibuat.");
     productId=String(created.productId);
    }
@@ -153,7 +157,7 @@ export default function SellerStoriesPage(){
      if(p.audio){const ext=p.audio.type==="audio/mpeg"?"mp3":p.audio.type==="audio/wav"?"wav":p.audio.type==="audio/aac"?"aac":p.audio.type==="audio/webm"?"webm":"m4a";audioPath=user.id+"/"+productId+"/"+(i+1)+"-narration-"+crypto.randomUUID()+"."+ext;const result=await supabase.storage.from("story-media").upload(audioPath,p.audio,{contentType:p.audio.type,upsert:false});if(result.error)throw new Error("Upload audio halaman "+(i+1)+" gagal: "+result.error.message);uploaded.push(audioPath);}
      pagePayload.push({title:p.title,body:p.body,duration:p.duration,illustration_url:imageUrl,audio_url:audioPath});
     }
-    const saveResponse=await fetch("/api/seller/stories",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({productId,category,description,pages:pagePayload})});
+    const saveResponse=await fetch("/api/seller/stories",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({productId,category,description,price:Number(price),stock:Number(stock),coverUrl,pages:pagePayload})});
     const saved=await saveResponse.json();if(!saveResponse.ok)throw new Error(saved.error||"Halaman cerita gagal disimpan.");
    }catch(uploadError){
     await supabase.storage.from("story-media").remove(uploaded);
@@ -161,7 +165,7 @@ export default function SellerStoriesPage(){
     throw uploadError;
    }
    setMessage(editingStoryId?"Perubahan cerita berhasil dikirim ulang untuk ditinjau admin.":"Cerita berhasil dikirim ke admin untuk ditinjau.");
-   setTitle("");setDescription("");setCategory("budaya");setPages([emptyPage()]);setEditingStoryId(null);setEditLoaded(null);router.replace("/seller/stories");
+   setTitle("");setDescription("");setCategory("budaya");setPrice("15000");setStock("25");setCoverUrl("");setCoverPreview("");setPages([emptyPage()]);setEditingStoryId(null);setEditLoaded(null);router.replace("/seller/stories");
    await load();
   }catch(e){setError(e instanceof Error?e.message:"Cerita gagal dikirim.");}
   finally{setSaving(false);}
@@ -179,7 +183,7 @@ export default function SellerStoriesPage(){
     <div><p className="text-[9px] font-bold tracking-[.14em] text-[#C79854]">INFORMASI CERITA</p><h2 className="mt-1 font-display text-xl text-[#431714]">{editingStoryId?"Perbarui identitas cerita":"Identitas cerita"}</h2></div>
     <label className="block text-xs font-semibold text-[#574638]">Judul cerita<input required minLength={3} maxLength={120} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Contoh: Kisah di Balik Motif Batik" className="mt-2 w-full rounded-xl border border-[#DED3C1] bg-white px-4 py-3 text-sm outline-none focus:border-[#93372A]"/></label>
     <label className="block text-xs font-semibold text-[#574638]">Deskripsi<textarea required minLength={20} maxLength={2000} rows={3} value={description} onChange={e=>setDescription(e.target.value)} placeholder="Ceritakan secara singkat isi dan keunikan cerita ini..." className="mt-2 w-full rounded-xl border border-[#DED3C1] bg-white px-4 py-3 text-sm outline-none focus:border-[#93372A]"/></label>
-    <label className="block text-xs font-semibold text-[#574638]">Kategori<select value={category} onChange={e=>setCategory(e.target.value)} className="mt-2 w-full rounded-xl border border-[#DED3C1] bg-white px-4 py-3 text-sm"><option value="budaya">Budaya dan tradisi</option><option value="dongeng">Dongeng dan legenda</option><option value="inspirasi">Inspirasi dan cita-cita</option><option value="sejarah">Sejarah daerah</option><option value="edukasi">Edukasi</option></select></label>
+    <div className="grid gap-3 sm:grid-cols-2"><label className="block text-xs font-semibold text-[#574638]">Harga jual (Rp)<input required type="number" min="1000" max="100000000" step="1000" value={price} onChange={e=>setPrice(e.target.value)} className="mt-2 w-full rounded-xl border border-[#DED3C1] bg-white px-4 py-3 text-sm"/></label><label className="block text-xs font-semibold text-[#574638]">Stok tersedia<input required type="number" min="1" max="10000" step="1" value={stock} onChange={e=>setStock(e.target.value)} className="mt-2 w-full rounded-xl border border-[#DED3C1] bg-white px-4 py-3 text-sm"/></label></div><div className="rounded-xl border border-dashed border-[#CDBB9F] bg-[#FBF7EE] p-4"><label className="block text-xs font-bold text-[#79552F]">Cover utama Kado Cerita</label><p className="mt-1 text-[10px] text-[#8A7965]">Masukkan URL gambar HTTPS dari Imgur atau Google Drive. Cover ini tampil di katalog dan halaman produk.</p><input required type="url" value={coverUrl} onChange={e=>{setCoverUrl(e.target.value);setCoverPreview(e.target.value);}} placeholder="https://i.imgur.com/cover.jpg" className="mt-3 w-full rounded-lg border border-[#DED3C1] bg-white px-3 py-2.5 text-xs"/>{coverPreview&&<img src={coverPreview} alt="Preview cover Kado Cerita" className="mt-3 h-44 w-full rounded-lg bg-white object-contain" onError={()=>setCoverPreview("")}/>}</div><label className="block text-xs font-semibold text-[#574638]">Kategori<select value={category} onChange={e=>setCategory(e.target.value)} className="mt-2 w-full rounded-xl border border-[#DED3C1] bg-white px-4 py-3 text-sm"><option value="budaya">Budaya dan tradisi</option><option value="dongeng">Dongeng dan legenda</option><option value="inspirasi">Inspirasi dan cita-cita</option><option value="sejarah">Sejarah daerah</option><option value="edukasi">Edukasi</option></select></label>
     <div className="border-t border-[#E7DDCC] pt-5"><div className="flex items-center justify-between gap-3"><div><p className="text-[9px] font-bold tracking-[.14em] text-[#C79854]">ISI BUKU</p><h2 className="mt-1 font-display text-xl text-[#431714]">Halaman cerita</h2></div><span className="rounded-full bg-[#F3EBDD] px-3 py-1.5 text-[10px] font-bold text-[#79552F]">{pages.length}/20 halaman</span></div>
      <div className="mt-4 space-y-4">{pages.map((page,index)=><section key={index} className="rounded-xl border border-[#DED3C1] bg-white p-4">
       <div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold text-[#431714]">Halaman {index+1}</h3>{pages.length>1&&<button type="button" onClick={()=>removePage(index)} aria-label="Hapus halaman" className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><Trash2 size={16}/></button>}</div>
