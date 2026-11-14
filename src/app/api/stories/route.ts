@@ -11,11 +11,7 @@ export async function GET() {
   const stories = await Promise.all((data ?? []).map(async (story) => {
     const pages = (story.story_pages ?? []).sort((a, b) => Number(a.page_number) - Number(b.page_number));
     const first = pages[0];
-    let cover = "";
-    if (first?.illustration_url) {
-      const signed = await supabase.storage.from("story-media").createSignedUrl(first.illustration_url, 3600);
-      cover = signed.data?.signedUrl ?? "";
-    }
+    const cover = first?.illustration_url ?? "";
     return { id: story.id, slug: story.slug, title: story.name, description: story.description ?? "", category: String((story.metadata as Record<string, unknown> | null)?.story_category ?? "budaya"), pageCount: pages.length, cover, createdAt: story.created_at };
   }));
   return NextResponse.json({ stories });
