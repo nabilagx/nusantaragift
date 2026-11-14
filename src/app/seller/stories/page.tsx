@@ -96,10 +96,10 @@ export default function SellerStoriesPage(){
       supabase.storage.from("story-media").upload(imagePath,p.image,{contentType:p.image.type,upsert:false}),
       supabase.storage.from("story-media").upload(audioPath,p.audio,{contentType:p.audio.type,upsert:false})
      ]);
+     if(!imageResult.error)uploaded.push(imagePath);
+     if(!audioResult.error)uploaded.push(audioPath);
      if(imageResult.error)throw new Error("Upload ilustrasi halaman "+(i+1)+" gagal: "+imageResult.error.message);
-     uploaded.push(imagePath);
      if(audioResult.error)throw new Error("Upload audio halaman "+(i+1)+" gagal: "+audioResult.error.message);
-     uploaded.push(audioPath);
      pagePayload.push({title:p.title,body:p.body,duration:p.duration,illustration_url:imagePath,audio_url:audioPath});
     }
     const saveResponse=await fetch("/api/seller/stories",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({productId,category,pages:pagePayload})});
