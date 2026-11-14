@@ -82,7 +82,7 @@ export default function SellerStoriesPage(){
    const created=await createResponse.json();if(!createResponse.ok)throw new Error(created.error||"Draft cerita gagal dibuat.");
    const productId=String(created.productId);
    const supabase=createClient();
-   const {data:{user}}=await supabase.auth.getUser();if(!user)throw new Error("Sesi login berakhir. Silakan login kembali.");
+   const {data:{user}}=await supabase.auth.getUser();if(!user){await fetch("/api/seller/stories",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({productId})});throw new Error("Sesi login berakhir. Silakan login kembali.");}
    const uploaded:string[]=[];
    try{
     const pagePayload=[];
