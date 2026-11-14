@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Clock3, FileAudio, FileImage, Plus, QrCode, Trash2, UploadCloud } from "lucide-react";
+import { ArrowRight, CheckCircle2, FileAudio, FileImage, Plus, Trash2, UploadCloud } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { createClient } from "@/lib/supabase/client";
 import DashboardShell, { type DashboardNavItem } from "@/components/dashboard/DashboardShell";
