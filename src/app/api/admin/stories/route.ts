@@ -15,11 +15,8 @@ async function adminClient() {
 
 async function withSignedMedia(supabase: Awaited<ReturnType<typeof createClient>>, pages: Record<string, unknown>[]) {
   return Promise.all(pages.map(async (page) => {
-    const [image, audio] = await Promise.all([
-      supabase.storage.from("story-media").createSignedUrl(String(page.illustration_url), 3600),
-      supabase.storage.from("story-media").createSignedUrl(String(page.audio_url), 3600),
-    ]);
-    return { ...page, illustration_url: image.data?.signedUrl ?? "", audio_url: audio.data?.signedUrl ?? "" };
+    const audio = await supabase.storage.from("story-media").createSignedUrl(String(page.audio_url), 3600);
+    return { ...page, illustration_url: String(page.illustration_url ?? ""), audio_url: audio.data?.signedUrl ?? "" };
   }));
 }
 
