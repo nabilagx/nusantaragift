@@ -3,8 +3,6 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMidtransConfig } from "@/lib/midtrans/config";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 type MidtransNotification = {
   order_id?: string;
