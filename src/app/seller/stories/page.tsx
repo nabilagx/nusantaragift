@@ -91,12 +91,12 @@ export default function SellerStoriesPage(){
    const stream=await navigator.mediaDevices.getUserMedia({audio:true});streamRef.current=stream;
    const mimeType=["audio/webm;codecs=opus","audio/mp4","audio/webm"].find(type=>MediaRecorder.isTypeSupported(type));
    const recorder=new MediaRecorder(stream,mimeType?{mimeType}:undefined);
-   recorderRef.current=recorder;chunksRef.current=[];recordingStartedAt.current=Date.now();setRecordingIndex(index);setError("");
+   recorderRef.current=recorder;chunksRef.current=[];recordingStartedAt.current=Date.now();setPage(index,{audio:null,duration:null});setRecordingIndex(index);setError("");
    recorder.ondataavailable=event=>{if(event.data.size>0)chunksRef.current.push(event.data);};
    recorder.onerror=()=>{setError("Rekaman gagal. Periksa izin mikrofon lalu coba lagi.");setRecordingIndex(null);stream.getTracks().forEach(track=>track.stop());};
    recorder.onstop=()=>{
-    const mime=recorder.mimeType||"audio/webm";const blob=new Blob(chunksRef.current,{type:mime});
-    const ext=mime.includes("mp4")?"m4a":"webm";
+    const recordedMime=recorder.mimeType||"audio/webm";const mime=recordedMime.includes("mp4")?"audio/mp4":"audio/webm";const blob=new Blob(chunksRef.current,{type:mime});
+    const ext=mime==="audio/mp4"?"m4a":"webm";
     if(blob.size>15*1024*1024){setError("Ukuran rekaman melebihi 15 MB. Rekam ulang dengan durasi lebih singkat.");}
     else if(blob.size>0){const file=new File([blob],"narasi-halaman-"+(index+1)+"."+ext,{type:mime});setPage(index,{audio:file,duration:Math.max(1,Math.round((Date.now()-recordingStartedAt.current)/1000))});}
     setRecordingIndex(null);stream.getTracks().forEach(track=>track.stop());streamRef.current=null;recorderRef.current=null;
