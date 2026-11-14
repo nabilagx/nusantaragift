@@ -30,6 +30,10 @@ export default function DigitalGiftCardDownload({token,orderNumber,expiresAt,des
     ctx.font="46px "+fontFamily;ctx.fillText("Untuk "+recipient.slice(0,28),80,250);
     ctx.font="24px "+fontFamily;ctx.fillStyle=fontColor;
     const lines=wrapText(ctx,message,650).slice(0,5);lines.forEach((line,i)=>ctx.fillText(line,80,320+i*42));
+    const glyphs:Record<string,string>={flower:"✿",branch:"❧",bow:"♧",sparkle:"✦",butterfly:"❀",leaf:"❦",frame:"◇",sun:"☼",tulip:"⚘",arch:"⌒",star:"★",wildflower:"✾",bird:"♧"};
+    const ornaments=Array.isArray(card.ornaments)?card.ornaments as Record<string,unknown>[]:[];
+    ornaments.forEach(item=>{const glyph=glyphs[String(item.kind)]??"✦";const x=(Number(item.x)||50)*12;const y=(Number(item.y)||50)*7.5;const size=Math.max(16,Math.min(90,(Number(item.size)||30)*1.35));ctx.save();ctx.translate(x,y);ctx.rotate((Number(item.rotation)||0)*Math.PI/180);ctx.font=size+"px Georgia, serif";ctx.fillStyle=fontColor;ctx.globalAlpha=.78;ctx.textAlign="center";ctx.fillText(glyph,0,size/3);ctx.restore();});
+    ctx.textAlign="left";ctx.globalAlpha=1;
     ctx.font="18px Arial";ctx.globalAlpha=.7;ctx.fillText("Dengan kasih,",80,590);ctx.globalAlpha=1;
     ctx.font="bold 26px "+fontFamily;ctx.fillText(sender.slice(0,40),80,630);
     ctx.fillStyle="#FFFFFF";ctx.fillRect(820,190,280,280);ctx.drawImage(qrImage,835,205,250,250);
