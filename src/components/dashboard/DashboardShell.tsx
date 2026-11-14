@@ -130,7 +130,7 @@ export default function DashboardShell({
       </div>
 
       <nav aria-label="Navigasi mobile" className={`fixed inset-x-0 bottom-0 z-40 border-t px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur-xl xl:hidden ${role === "ADMIN" ? "border-[#5A2A24] bg-[#431714]/97 shadow-[0_-8px_24px_rgba(20,42,36,.2)]" : "border-[#5A2A24] bg-[#431714]/97 shadow-[0_-8px_24px_rgba(67,23,20,.2)]"}`}>
-        <div className={`mx-auto grid max-w-xl gap-1 ${"grid-cols-5"}`}>
+        <div className={`mx-auto grid max-w-xl gap-1 ${mobileNavItems.length > 5 ? "grid-cols-6" : "grid-cols-5"}`}>
           {mobileNavItems.map((item) => {
             const Icon = icons[item.icon];
             const selected = active(item.href);
