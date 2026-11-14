@@ -8,7 +8,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { createClient } from "@/lib/supabase/client";
 import DashboardShell, { type DashboardNavItem } from "@/components/dashboard/DashboardShell";
 
-type PageDraft = { title: string; body: string; image: File | null; audio: File | null; imagePreview: string; duration: number | null };
+type PageDraft = { title: string; body: string; image: File | null; audio: File | null; audioPreview: string; imagePreview: string; duration: number | null };
 type Story = { id: string; slug: string; name: string; description: string | null; status: string; moderation_note: string | null; pages: { page_number: number }[] };
 const nav: DashboardNavItem[] = [
  {label:"Ringkasan",href:"/seller/dashboard",icon:"overview"},
@@ -30,7 +30,7 @@ const mobileNav: DashboardNavItem[] = [
 ];
 const statusLabel: Record<string,string> = {draft:"Draft",pending_review:"Menunggu kurasi",active:"Tayang",rejected:"Perlu revisi",archived:"Diarsipkan"};
 const statusStyle: Record<string,string> = {draft:"bg-stone-100 text-stone-700",pending_review:"bg-amber-100 text-amber-800",active:"bg-emerald-100 text-emerald-800",rejected:"bg-rose-100 text-rose-800",archived:"bg-stone-100 text-stone-500"};
-const emptyPage = (): PageDraft => ({title:"",body:"",image:null,audio:null,imagePreview:"",duration:null});
+const emptyPage = (): PageDraft => ({title:"",body:"",image:null,audio:null,audioPreview:"",imagePreview:"",duration:null});
 
 export default function SellerStoriesPage(){
  const router=useRouter();
@@ -80,8 +80,8 @@ export default function SellerStoriesPage(){
   if(!file)return;
   if(!["audio/mpeg","audio/mp4","audio/wav","audio/x-m4a","audio/aac","audio/webm"].includes(file.type)||file.size>15*1024*1024){setError("Audio harus MP3, M4A, AAC, WAV, atau WebM maksimal 15 MB.");return;}
   const url=URL.createObjectURL(file);const audio=new Audio(url);
-  audio.onloadedmetadata=()=>setPage(index,{audio:file,duration:Number.isFinite(audio.duration)?Math.round(audio.duration):null});
-  audio.onerror=()=>setPage(index,{audio:file});setError("");
+  audio.onloadedmetadata=()=>setPage(index,{audio:file,audioPreview:url,duration:Number.isFinite(audio.duration)?Math.round(audio.duration):null});
+  audio.onerror=()=>setPage(index,{audio:file,audioPreview:url});setError("");
  }
  async function toggleRecording(index:number){
   if(recordingIndex===index){recorderRef.current?.stop();return;}
@@ -91,14 +91,14 @@ export default function SellerStoriesPage(){
    const stream=await navigator.mediaDevices.getUserMedia({audio:true});streamRef.current=stream;
    const mimeType=["audio/webm;codecs=opus","audio/mp4","audio/webm"].find(type=>MediaRecorder.isTypeSupported(type));
    const recorder=new MediaRecorder(stream,mimeType?{mimeType}:undefined);
-   recorderRef.current=recorder;chunksRef.current=[];recordingStartedAt.current=Date.now();setPage(index,{audio:null,duration:null});setRecordingIndex(index);setError("");
+   recorderRef.current=recorder;chunksRef.current=[];recordingStartedAt.current=Date.now();setPage(index,{audio:null,audioPreview:"",duration:null});setRecordingIndex(index);setError("");
    recorder.ondataavailable=event=>{if(event.data.size>0)chunksRef.current.push(event.data);};
    recorder.onerror=()=>{setError("Rekaman gagal. Periksa izin mikrofon lalu coba lagi.");setRecordingIndex(null);stream.getTracks().forEach(track=>track.stop());};
    recorder.onstop=()=>{
     const recordedMime=recorder.mimeType||"audio/webm";const mime=recordedMime.includes("mp4")?"audio/mp4":"audio/webm";const blob=new Blob(chunksRef.current,{type:mime});
     const ext=mime==="audio/mp4"?"m4a":"webm";
     if(blob.size>15*1024*1024){setError("Ukuran rekaman melebihi 15 MB. Rekam ulang dengan durasi lebih singkat.");}
-    else if(blob.size>0){const file=new File([blob],"narasi-halaman-"+(index+1)+"."+ext,{type:mime});setPage(index,{audio:file,duration:Math.max(1,Math.round((Date.now()-recordingStartedAt.current)/1000))});}
+    else if(blob.size>0){const file=new File([blob],"narasi-halaman-"+(index+1)+"."+ext,{type:mime});const audioPreview=URL.createObjectURL(blob);setPage(index,{audio:file,audioPreview,duration:Math.max(1,Math.round((Date.now()-recordingStartedAt.current)/1000))});}
     setRecordingIndex(null);stream.getTracks().forEach(track=>track.stop());streamRef.current=null;recorderRef.current=null;
    };
    recorder.start();
@@ -166,12 +166,12 @@ export default function SellerStoriesPage(){
       <textarea required minLength={10} maxLength={5000} rows={4} value={page.body} onChange={e=>setPage(index,{body:e.target.value})} placeholder="Tulis isi cerita untuk halaman ini..." className="w-full rounded-lg border border-[#E5DDCF] px-3 py-3 text-xs leading-6 outline-none focus:border-[#93372A]"/>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
        <label className="cursor-pointer rounded-xl border border-dashed border-[#CDBB9F] bg-[#FBF7EE] p-3"><span className="flex items-center gap-2 text-xs font-bold text-[#79552F]"><FileImage size={16}/> Ilustrasi halaman</span><span className="mt-1 block text-[10px] text-[#8A7965]">JPG, PNG, WebP · Maks. 15 MB</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>chooseImage(index,e.target.files?.[0]??null)} className="mt-2 block w-full text-[10px] file:mr-2 file:rounded-full file:border-0 file:bg-[#EDE0C7] file:px-3 file:py-1.5 file:text-[10px] file:font-bold file:text-[#79552F]"/>{page.imagePreview&&<img src={page.imagePreview} alt="Preview ilustrasi" className="mt-3 h-28 w-full rounded-lg object-cover"/>}</label>
-       <div className="rounded-xl border border-dashed border-[#CDBB9F] bg-[#FBF7EE] p-3"><span className="flex items-center gap-2 text-xs font-bold text-[#79552F]"><FileAudio size={16}/> Rekaman narasi</span><span className="mt-1 block text-[10px] text-[#8A7965]">Rekam langsung atau upload MP3, M4A, AAC, WAV, WebM · Maks. 15 MB</span><button type="button" onClick={()=>void toggleRecording(index)} disabled={recordingIndex!==null&&recordingIndex!==index} className={"mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold disabled:opacity-50 "+(recordingIndex===index?"bg-rose-600 text-white":"bg-[#431714] text-white")}>{recordingIndex===index?<><Square size={14}/> Hentikan rekaman</>:<><Mic size={14}/> Rekam suara langsung</>}</button><input type="file" accept="audio/mpeg,audio/mp4,audio/wav,audio/x-m4a,audio/aac,audio/webm" onChange={e=>chooseAudio(index,e.target.files?.[0]??null)} className="mt-3 block w-full text-[10px] file:mr-2 file:rounded-full file:border-0 file:bg-[#EDE0C7] file:px-3 file:py-1.5 file:text-[10px] file:font-bold file:text-[#79552F]"/>{page.audio&&<p className="mt-3 truncate text-[10px] text-emerald-800">✓ {page.audio.name}{page.duration? " · "+page.duration+" detik":""}</p>}</div>
+       <div className="rounded-xl border border-dashed border-[#CDBB9F] bg-[#FBF7EE] p-3"><span className="flex items-center gap-2 text-xs font-bold text-[#79552F]"><FileAudio size={16}/> Rekaman narasi</span><span className="mt-1 block text-[10px] text-[#8A7965]">Rekam langsung atau upload MP3, M4A, AAC, WAV, WebM · Maks. 15 MB</span><button type="button" onClick={()=>void toggleRecording(index)} disabled={recordingIndex!==null&&recordingIndex!==index} className={"mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold disabled:opacity-50 "+(recordingIndex===index?"bg-rose-600 text-white":"bg-[#431714] text-white")}>{recordingIndex===index?<><Square size={14}/> Hentikan rekaman</>:<><Mic size={14}/> Rekam suara langsung</>}</button><input type="file" accept="audio/mpeg,audio/mp4,audio/wav,audio/x-m4a,audio/aac,audio/webm" onChange={e=>chooseAudio(index,e.target.files?.[0]??null)} className="mt-3 block w-full text-[10px] file:mr-2 file:rounded-full file:border-0 file:bg-[#EDE0C7] file:px-3 file:py-1.5 file:text-[10px] file:font-bold file:text-[#79552F]"/>{page.audio&&<div className="mt-3 rounded-lg bg-white p-3"><p className="truncate text-[10px] font-semibold text-emerald-800">✓ Audio siap: {page.audio.name}{page.duration? " · "+page.duration+" detik":""}</p>{page.audioPreview&&<audio controls preload="metadata" src={page.audioPreview} className="mt-2 w-full"/>}<p className="mt-1 text-[10px] text-[#8A7965]">Dengarkan preview untuk memastikan suara dan isi narasi sudah benar.</p></div>}</div>
       </div>
      </section>)}</div>
      <button type="button" onClick={addPage} disabled={pages.length>=20} className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#BDA98C] px-4 py-2.5 text-xs font-bold text-[#79552F] disabled:opacity-40"><Plus size={15}/> Tambah halaman</button>
     </div>
-    <div className="rounded-xl bg-[#F3EBDD] p-4 text-[11px] leading-5 text-[#765E48]">Pastikan rekaman merupakan suara yang kamu miliki atau telah mendapat izin dari narator. Cerita tidak dikenakan biaya kepada pembaca.</div>
+    <div className="rounded-xl bg-[#F3EBDD] p-4 text-[11px] leading-5 text-[#765E48]">Jumlah halaman fleksibel: minimal 1 dan maksimal 20 halaman per cerita. Setiap halaman wajib memiliki teks, ilustrasi, dan audio. Dengarkan preview audio sebelum mengirim. Pastikan rekaman merupakan suara yang kamu miliki atau telah mendapat izin dari narator.</div>
     <button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#431714] px-5 py-3.5 text-xs font-bold text-white hover:bg-[#61251E] disabled:cursor-wait disabled:opacity-60">{saving?<><UploadCloud size={16}/> Mengunggah cerita...</>:<>Kirim untuk kurasi admin <ArrowRight size={15}/></>}</button>
    </form>
    <aside className="space-y-5">
