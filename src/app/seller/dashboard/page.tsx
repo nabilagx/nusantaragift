@@ -100,6 +100,8 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
   const [orderFilter, setOrderFilter] = useState("all");
   const [productFilter, setProductFilter] = useState("all");
   const [productCategoryFilter, setProductCategoryFilter] = useState("all");
+  const [productSearch, setProductSearch] = useState("");
+  const [showBestSelling, setShowBestSelling] = useState(false);
   const [shipping, setShipping] = useState<Record<string, { courier: string; tracking: string }>>({});
 
   const load = useCallback(async () => {
@@ -129,7 +131,7 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
       });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Produk gagal diajukan.");
       setMessage("Produk berhasil dikirim ke antrean kurasi admin.");
-      setForm({ name: "", description: "", category: "cerita", price: "", stock: "1", imageUrl: "" });
+      setForm({ name: "", description: "", category: "rasa", price: "", stock: "1", imageUrl: "" });
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Produk gagal diajukan."); }
     finally { setSaving(false); }
@@ -208,17 +210,22 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
     acc[item.product_name] = (acc[item.product_name] ?? 0) + item.quantity; return acc;
   }, {}), [orders]);
   const filteredProducts = useMemo(() => {
+    const query = productSearch.trim().toLocaleLowerCase("id");
     const result = products.filter(p => {
       const summary = p.metadata?.summary as { type?: string } | undefined;
-      const category = p.metadata?.story_category ? "cerita" : summary?.type === "Cerita digital" ? "cerita" : summary?.type;
-      const statusMatch = productFilter === "all" || productFilter === "best-selling" ||
+      const category = String(p.metadata?.story_category ?? summary?.type ?? "").toLocaleLowerCase("id");
+      const statusMatch = productFilter === "all" ||
         (productFilter === "active" && p.status === "active") || (productFilter === "pending" && p.status === "pending_review") ||
         (productFilter === "rejected" && p.status === "rejected") || (productFilter === "archived" && p.status === "archived");
-      return statusMatch && (productCategoryFilter === "all" || category === productCategoryFilter);
+      const categoryMatch = productCategoryFilter === "all" || category === productCategoryFilter ||
+        (productCategoryFilter === "cerita" && category.includes("cerita"));
+      const searchMatch = !query || [p.name, p.description ?? "", p.slug, category, p.status]
+        .some(value => value.toLocaleLowerCase("id").includes(query));
+      return statusMatch && categoryMatch && searchMatch;
     });
-    if (productFilter === "best-selling") result.sort((a, b) => (salesByProduct[b.name] ?? 0) - (salesByProduct[a.name] ?? 0));
+    if (showBestSelling) result.sort((a, b) => (salesByProduct[b.name] ?? 0) - (salesByProduct[a.name] ?? 0));
     return result;
-  }, [products, productFilter, productCategoryFilter, salesByProduct]);
+  }, [products, productFilter, productCategoryFilter, productSearch, showBestSelling, salesByProduct]);
   const latestOrders = [...orders].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)).slice(0, 4);
   const lowStock = activeProducts.filter(p => p.stock <= 5);
   const bestSeller = Object.values(orders.flatMap(o => o.items).reduce<Record<string, { name: string; quantity: number }>>((acc, item) => {
@@ -301,11 +308,25 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.9fr_1fr]">
         <article className="rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5">
           <h3 className="font-display text-[20px] text-[#431714]">Semua produk</h3>
-          <div className="my-4 space-y-3">
-            <div className="flex flex-wrap gap-2">{[{id:"all",label:"Semua status"},{id:"active",label:"Tayang"},{id:"pending",label:"Review"},{id:"rejected",label:"Perlu revisi"},{id:"archived",label:"Arsip"}].map(f=><button key={f.id} onClick={()=>setProductFilter(f.id)} className={`rounded-full px-3 py-2 text-[9px] font-bold ${productFilter===f.id ? "bg-[#431714] text-white" : "border border-[#DCD2C1] text-[#7A6C5E]"}`}>{f.label}</button>)}</div>
-            <div className="flex flex-wrap gap-2">{[{id:"all",label:"Semua kategori"},{id:"cerita",label:"Cerita"},{id:"rasa",label:"Rasa"},{id:"budaya",label:"Budaya"}].map(f=><button key={f.id} onClick={()=>setProductCategoryFilter(f.id)} className={`rounded-full px-3 py-2 text-[9px] font-bold ${productCategoryFilter===f.id ? "bg-[#EAD9BE] text-[#431714]" : "border border-[#DCD2C1] text-[#7A6C5E]"}`}>{f.label}</button>)}
-              <button onClick={()=>setProductFilter("best-selling")} className={`rounded-full px-3 py-2 text-[9px] font-bold ${productFilter==="best-selling" ? "bg-[#4F6E59] text-white" : "border border-[#C8D7C7] text-[#4F6E59]"}`}>Terlaris ↓</button>
+          <div className="my-4 rounded-xl border border-[#E8DFD2] bg-white/70 p-3 sm:p-4">
+            <label className="flex h-11 items-center gap-3 rounded-lg border border-[#DCD2C1] bg-[#FDFAF3] px-3 focus-within:border-[#93372A]">
+              <span className="text-[#9A8061]"><Search size={16}/></span>
+              <input value={productSearch} onChange={e=>setProductSearch(e.target.value)} placeholder="Cari nama produk, deskripsi, atau kategori..." className="w-full bg-transparent text-[11px] text-[#251E1A] outline-none placeholder:text-[#A99A88]"/>
+              {productSearch && <button type="button" onClick={()=>setProductSearch("")} className="text-[9px] font-semibold text-[#93372A]">Hapus</button>}
+            </label>
+            <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+              <div className="space-y-3">
+                <div><p className="mb-2 text-[8px] font-bold tracking-[.12em] text-[#9A8061]">STATUS PRODUK</p><div className="flex flex-wrap gap-2">{[{id:"all",label:"Semua"},{id:"active",label:"Tayang"},{id:"pending",label:"Review"},{id:"rejected",label:"Perlu revisi"},{id:"archived",label:"Arsip"}].map(f=><button key={f.id} onClick={()=>setProductFilter(f.id)} aria-pressed={productFilter===f.id} className={`rounded-full px-3 py-2 text-[9px] font-semibold transition ${productFilter===f.id ? "bg-[#431714] text-white" : "border border-[#DCD2C1] bg-white text-[#7A6C5E] hover:border-[#A98B67]"}`}>{f.label}</button>)}</div></div>
+                <div><p className="mb-2 text-[8px] font-bold tracking-[.12em] text-[#9A8061]">KATEGORI</p><div className="flex flex-wrap gap-2">{[{id:"all",label:"Semua kategori"},{id:"cerita",label:"Cerita"},{id:"rasa",label:"Rasa"},{id:"budaya",label:"Budaya"}].map(f=><button key={f.id} onClick={()=>setProductCategoryFilter(f.id)} aria-pressed={productCategoryFilter===f.id} className={`rounded-full px-3 py-2 text-[9px] font-semibold transition ${productCategoryFilter===f.id ? "bg-[#EAD9BE] text-[#431714]" : "border border-[#DCD2C1] bg-white text-[#7A6C5E] hover:border-[#A98B67]"}`}>{f.label}</button>)}</div></div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <button type="button" onClick={()=>setShowBestSelling(value=>!value)} aria-pressed={showBestSelling} className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[9px] font-bold transition ${showBestSelling ? "bg-[#4F6E59] text-white" : "border border-[#C8D7C7] bg-white text-[#4F6E59] hover:bg-[#EAF0E8]"}`}>
+                  <BarChart3 size={13}/>{showBestSelling ? "Terlaris aktif · Matikan" : "Urutkan: Terlaris"}
+                </button>
+                {(productSearch || productFilter!=="all" || productCategoryFilter!=="all" || showBestSelling) && <button type="button" onClick={()=>{setProductSearch("");setProductFilter("all");setProductCategoryFilter("all");setShowBestSelling(false);}} className="rounded-full border border-[#DCD2C1] px-3 py-2.5 text-[9px] font-semibold text-[#7A6C5E]">Reset filter</button>}
+              </div>
             </div>
+            <p className="mt-3 text-[9px] text-[#8B7B68]">{filteredProducts.length} produk ditemukan</p>
           </div>
           <div className="hidden grid-cols-[1.4fr_.55fr_.8fr_.8fr] border-y border-[#DCD2C1] py-3 text-[8px] font-bold tracking-[.12em] text-[#7A6C5E] sm:grid"><span>NAMA PRODUK</span><span>STOK</span><span>HARGA</span><span>STATUS</span></div>
           {loading ? <p className="py-8 text-center text-[11px] text-[#7A6C5E]">Memuat katalog...</p> : filteredProducts.length === 0 ? <p className="py-10 text-center text-[11px] text-[#7A6C5E]">Belum ada produk pada kategori ini.</p> :
