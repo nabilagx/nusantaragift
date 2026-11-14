@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BookOpen, Headphones, Pause, Play, RotateCcw, Volume2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Headphones, Play, RotateCcw, Volume2 } from "lucide-react";
 import ShopLayout from "@/components/shop/ShopLayout";
 type StoryPage={id:string;pageNumber:number;title:string|null;body:string;imageUrl:string;audioUrl:string;duration:number|null};
 type Story={slug:string;title:string;description:string;category:string;pages:StoryPage[]};
