@@ -20,7 +20,7 @@ export async function GET() {
   const auth = await sellerClient();
   if (auth.error || !auth.user) return auth.error ?? fail("Silakan login.", 401);
   const { data, error } = await auth.supabase.from("products")
-    .select("id,slug,name,description,status,moderation_note,created_at,story_pages(id,page_number,page_title,body,illustration_url,audio_url,audio_duration_seconds)")
+    .select("id,slug,name,description,status,moderation_note,created_at,metadata,story_pages(id,page_number,page_title,body,illustration_url,audio_url,audio_duration_seconds)")
     .eq("seller_id", auth.user.id).eq("delivery_type", "digital-audio").order("created_at", { ascending: false });
   if (error) return fail("Gagal memuat cerita UMKM.", 500);
   const stories = await Promise.all((data ?? []).map(async (story) => {
