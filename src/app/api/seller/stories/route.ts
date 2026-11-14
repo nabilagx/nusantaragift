@@ -29,7 +29,7 @@ export async function GET() {
         auth.supabase.storage.from("story-media").createSignedUrl(page.illustration_url, 3600),
         auth.supabase.storage.from("story-media").createSignedUrl(page.audio_url, 3600),
       ]);
-      return { ...page, illustration_url: image.data?.signedUrl ?? "", audio_url: audio.data?.signedUrl ?? "" };
+      return { ...page, illustration_path: page.illustration_url, audio_path: page.audio_url, illustration_url: image.data?.signedUrl ?? "", audio_url: audio.data?.signedUrl ?? "" };
     }));
     return { ...story, pages: pages.sort((a, b) => Number((a as unknown as { page_number: number }).page_number) - Number((b as unknown as { page_number: number }).page_number)) };
   }));
@@ -75,7 +75,7 @@ export async function PUT(request: Request) {
   if (!productId || !Array.isArray(pages) || pages.length < 1 || pages.length > 20) return fail("Data halaman cerita tidak valid.");
   const { data: product, error: productError } = await auth.supabase.from("products")
     .select("id,status,delivery_type").eq("id", productId).eq("seller_id", auth.user.id).maybeSingle();
-  if (productError || !product || product.delivery_type !== "digital-audio" || product.status !== "draft") return fail("Draft cerita tidak ditemukan atau sudah diproses.", 404);
+  if (productError || !product || product.delivery_type !== "digital-audio" || product.status === "archived") return fail("Produk Cerita tidak ditemukan atau sudah diarsipkan.", 404);
 
   const rows = [];
   for (let i = 0; i < pages.length; i++) {
@@ -94,13 +94,15 @@ export async function PUT(request: Request) {
     const duration = Number(page.duration);
     rows.push({ product_id: productId, page_number: i + 1, page_title: title || null, body: text, illustration_url: imagePath, audio_url: audioPath, audio_duration_seconds: Number.isFinite(duration) && duration > 0 ? Math.round(duration) : null });
   }
-  const { error: insertError } = await auth.supabase.from("story_pages").insert(rows);
+  const { error: insertError } = await auth.supabase.from("story_pages").upsert(rows, { onConflict: "product_id,page_number" });
   if (insertError) {
-    console.error("Insert story pages:", insertError);
+    console.error("Save story pages:", insertError);
     return fail("Halaman cerita gagal disimpan.", 500);
   }
+  const { error: trimError } = await auth.supabase.from("story_pages").delete().eq("product_id", productId).gt("page_number", rows.length);
+  if (trimError) return fail("Halaman cerita lama gagal diselaraskan.", 500);
   const { error: updateError } = await auth.supabase.from("products").update({
-    status: "pending_review", updated_at: new Date().toISOString(),
+    status: "pending_review", description: typeof body.description === "string" ? body.description.trim() : undefined, updated_at: new Date().toISOString(),
     metadata: { story_category: body.category, region: "Indonesia", image: "", imageAlt: "Cerita Nusantara", size: rows.length + " halaman", summary: { type: "Cerita digital", format: "Buku cerita audio", unlock: "Gratis" } },
   }).eq("id", productId).eq("seller_id", auth.user.id);
   if (updateError) {
