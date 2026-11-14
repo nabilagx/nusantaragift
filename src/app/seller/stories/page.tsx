@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import DashboardShell, { type DashboardNavItem } from "@/components/dashboard/DashboardShell";
 
 type PageDraft = { title: string; body: string; image: File | null; audio: File | null; audioPreview: string; imagePreview: string; duration: number | null; imagePath?: string; audioPath?: string };
-type Story = { id: string; slug: string; name: string; description: string | null; status: string; moderation_note: string | null; pages: { page_number: number; page_title: string | null; body: string; illustration_url: string; audio_url: string; illustration_path: string; audio_path: string; audio_duration_seconds: number | null }[] };
+type Story = { id: string; slug: string; name: string; description: string | null; status: string; moderation_note: string | null; metadata?: Record<string, unknown>; pages: { page_number: number; page_title: string | null; body: string; illustration_url: string; audio_url: string; illustration_path: string; audio_path: string; audio_duration_seconds: number | null }[] };
 const nav: DashboardNavItem[] = [
  {label:"Ringkasan",href:"/seller/dashboard",icon:"overview"},
  {label:"Katalog Produk",href:"/seller/products",icon:"products"},
@@ -70,7 +70,7 @@ export default function SellerStoriesPage(){
   const story=stories.find(item=>item.id===editId);
   if(!story)return;
   setEditingStoryId(story.id);setTitle(story.name);setDescription(story.description??"");
-  setCategory(String((story as Story & {story_category?:string}).story_category??"budaya"));
+  setCategory(String(story.metadata?.story_category??"budaya"));
   setPages(story.pages.map(page=>({title:page.page_title??"",body:page.body,image:null,audio:null,imagePreview:page.illustration_url,audioPreview:page.audio_url,duration:page.audio_duration_seconds,imagePath:page.illustration_path,audioPath:page.audio_path})));
   setEditLoaded(editId);
  },[editId,editLoaded,stories]);
