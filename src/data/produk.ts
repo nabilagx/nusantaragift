@@ -23,7 +23,7 @@ export type ShopProduct = {
   deliveryType?: "physical" | "digital-audio";
 };
 
-export const produk: ShopProduct[
+export const produk: ShopProduct[] = [
   {
     id: "rasa-timur",
     title: "Kado Rasa – Edisi Timur Indonesia",
