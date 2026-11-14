@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CheckCircle2, FileAudio, FileImage, Plus, Trash2, UploadCloud } from "lucide-react";
+import { ArrowRight, CheckCircle2, FileAudio, FileImage, Mic, Plus, Square, Trash2, UploadCloud } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { createClient } from "@/lib/supabase/client";
 import DashboardShell, { type DashboardNavItem } from "@/components/dashboard/DashboardShell";
@@ -15,8 +15,11 @@ const nav: DashboardNavItem[] = [
  {label:"Katalog Produk",href:"/seller/products",icon:"products"},
  {label:"Cerita Audio",href:"/seller/stories",icon:"moderation"},
  {label:"Tambah Produk",href:"/seller/products/new",icon:"add"},
+ {label:"Iklan & Promosi",href:"/seller/ads",icon:"ads"},
  {label:"Pesanan",href:"/seller/orders",icon:"orders"},
+ {label:"Analitik Penjualan",href:"/seller/analytics",icon:"analytics"},
  {label:"Profil Toko",href:"/seller/profile",icon:"profile"},
+ {label:"Pusat Bantuan",href:"/seller/help",icon:"help"},
 ];
 const mobileNav: DashboardNavItem[] = [
  {label:"Beranda",href:"/seller/dashboard",icon:"overview"},
@@ -40,6 +43,11 @@ export default function SellerStoriesPage(){
  const [saving,setSaving]=useState(false);
  const [error,setError]=useState("");
  const [message,setMessage]=useState("");
+ const [recordingIndex,setRecordingIndex]=useState<number|null>(null);
+ const recorderRef=useRef<MediaRecorder|null>(null);
+ const streamRef=useRef<MediaStream|null>(null);
+ const chunksRef=useRef<Blob[]>([]);
+ const recordingStartedAt=useRef(0);
 
  async function load(){
   setLoading(true); setError("");
@@ -53,6 +61,7 @@ export default function SellerStoriesPage(){
   finally{setLoading(false);}
  }
  useEffect(()=>{void load();},[]);
+ useEffect(()=>()=>{if(recorderRef.current?.state==="recording")recorderRef.current.stop();streamRef.current?.getTracks().forEach(track=>track.stop());},[]);
 
  function setPage(index:number,patch:Partial<PageDraft>){
   setPages(current=>current.map((page,i)=>i===index?{...page,...patch}:page));
@@ -69,15 +78,36 @@ export default function SellerStoriesPage(){
  }
  function chooseAudio(index:number,file:File|null){
   if(!file)return;
-  if(!["audio/mpeg","audio/mp4","audio/wav","audio/x-m4a","audio/aac"].includes(file.type)||file.size>15*1024*1024){setError("Audio harus MP3, M4A, AAC, atau WAV maksimal 15 MB.");return;}
+  if(!["audio/mpeg","audio/mp4","audio/wav","audio/x-m4a","audio/aac","audio/webm"].includes(file.type)||file.size>15*1024*1024){setError("Audio harus MP3, M4A, AAC, WAV, atau WebM maksimal 15 MB.");return;}
   const url=URL.createObjectURL(file);const audio=new Audio(url);
   audio.onloadedmetadata=()=>setPage(index,{audio:file,duration:Number.isFinite(audio.duration)?Math.round(audio.duration):null});
   audio.onerror=()=>setPage(index,{audio:file});setError("");
  }
+ async function toggleRecording(index:number){
+  if(recordingIndex===index){recorderRef.current?.stop();return;}
+  if(recordingIndex!==null){setError("Selesaikan rekaman halaman sebelumnya terlebih dahulu.");return;}
+  try{
+   if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==="undefined")throw new Error("Browser ini belum mendukung rekaman langsung. Silakan upload file audio.");
+   const stream=await navigator.mediaDevices.getUserMedia({audio:true});streamRef.current=stream;
+   const mimeType=["audio/webm;codecs=opus","audio/mp4","audio/webm"].find(type=>MediaRecorder.isTypeSupported(type));
+   const recorder=new MediaRecorder(stream,mimeType?{mimeType}:undefined);
+   recorderRef.current=recorder;chunksRef.current=[];recordingStartedAt.current=Date.now();setRecordingIndex(index);setError("");
+   recorder.ondataavailable=event=>{if(event.data.size>0)chunksRef.current.push(event.data);};
+   recorder.onerror=()=>{setError("Rekaman gagal. Periksa izin mikrofon lalu coba lagi.");setRecordingIndex(null);stream.getTracks().forEach(track=>track.stop());};
+   recorder.onstop=()=>{
+    const mime=recorder.mimeType||"audio/webm";const blob=new Blob(chunksRef.current,{type:mime});
+    const ext=mime.includes("mp4")?"m4a":"webm";
+    if(blob.size>15*1024*1024){setError("Ukuran rekaman melebihi 15 MB. Rekam ulang dengan durasi lebih singkat.");}
+    else if(blob.size>0){const file=new File([blob],"narasi-halaman-"+(index+1)+"."+ext,{type:mime});setPage(index,{audio:file,duration:Math.max(1,Math.round((Date.now()-recordingStartedAt.current)/1000))});}
+    setRecordingIndex(null);stream.getTracks().forEach(track=>track.stop());streamRef.current=null;recorderRef.current=null;
+   };
+   recorder.start();
+  }catch(e){streamRef.current?.getTracks().forEach(track=>track.stop());streamRef.current=null;setRecordingIndex(null);setError(e instanceof Error?e.message:"Tidak dapat mengakses mikrofon.");}
+ }
  async function submit(event:FormEvent<HTMLFormElement>){
   event.preventDefault();setSaving(true);setError("");setMessage("");
   try{
-   if(pages.some(p=>!p.body.trim()||!p.image||!p.audio))throw new Error("Setiap halaman wajib memiliki teks, ilustrasi, dan rekaman audio.");
+   if(pages.some(p=>!p.body.trim()||!p.image||!p.audio))throw new Error("Setiap halaman wajib memiliki teks, ilustrasi, dan rekaman audio. Rekam narasi atau upload audio untuk setiap halaman.");
    const createResponse=await fetch("/api/seller/stories",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title,description,category})});
    const created=await createResponse.json();if(!createResponse.ok)throw new Error(created.error||"Draft cerita gagal dibuat.");
    const productId=String(created.productId);
@@ -89,7 +119,7 @@ export default function SellerStoriesPage(){
     for(let i=0;i<pages.length;i++){
      const p=pages[i];if(!p.image||!p.audio)throw new Error("Halaman "+(i+1)+" belum lengkap.");
      const imageExt=p.image.type==="image/png"?"png":p.image.type==="image/webp"?"webp":"jpg";
-     const audioExt=p.audio.type==="audio/mpeg"?"mp3":p.audio.type==="audio/wav"?"wav":p.audio.type==="audio/aac"?"aac":"m4a";
+     const audioExt=p.audio.type==="audio/mpeg"?"mp3":p.audio.type==="audio/wav"?"wav":p.audio.type==="audio/aac"?"aac":p.audio.type==="audio/webm"?"webm":"m4a";
      const imagePath=user.id+"/"+productId+"/"+(i+1)+"-illustration-"+crypto.randomUUID()+"."+imageExt;
      const audioPath=user.id+"/"+productId+"/"+(i+1)+"-narration-"+crypto.randomUUID()+"."+audioExt;
      const [imageResult,audioResult]=await Promise.all([
@@ -136,7 +166,7 @@ export default function SellerStoriesPage(){
       <textarea required minLength={10} maxLength={5000} rows={4} value={page.body} onChange={e=>setPage(index,{body:e.target.value})} placeholder="Tulis isi cerita untuk halaman ini..." className="w-full rounded-lg border border-[#E5DDCF] px-3 py-3 text-xs leading-6 outline-none focus:border-[#93372A]"/>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
        <label className="cursor-pointer rounded-xl border border-dashed border-[#CDBB9F] bg-[#FBF7EE] p-3"><span className="flex items-center gap-2 text-xs font-bold text-[#79552F]"><FileImage size={16}/> Ilustrasi halaman</span><span className="mt-1 block text-[10px] text-[#8A7965]">JPG, PNG, WebP · Maks. 15 MB</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>chooseImage(index,e.target.files?.[0]??null)} className="mt-2 block w-full text-[10px] file:mr-2 file:rounded-full file:border-0 file:bg-[#EDE0C7] file:px-3 file:py-1.5 file:text-[10px] file:font-bold file:text-[#79552F]"/>{page.imagePreview&&<img src={page.imagePreview} alt="Preview ilustrasi" className="mt-3 h-28 w-full rounded-lg object-cover"/>}</label>
-       <label className="cursor-pointer rounded-xl border border-dashed border-[#CDBB9F] bg-[#FBF7EE] p-3"><span className="flex items-center gap-2 text-xs font-bold text-[#79552F]"><FileAudio size={16}/> Rekaman narasi</span><span className="mt-1 block text-[10px] text-[#8A7965]">MP3, M4A, AAC, WAV · Maks. 15 MB</span><input type="file" accept="audio/mpeg,audio/mp4,audio/wav,audio/x-m4a,audio/aac" onChange={e=>chooseAudio(index,e.target.files?.[0]??null)} className="mt-2 block w-full text-[10px] file:mr-2 file:rounded-full file:border-0 file:bg-[#EDE0C7] file:px-3 file:py-1.5 file:text-[10px] file:font-bold file:text-[#79552F]"/>{page.audio&&<p className="mt-3 truncate text-[10px] text-emerald-800">✓ {page.audio.name}{page.duration? " · "+page.duration+" detik":""}</p>}</label>
+       <div className="rounded-xl border border-dashed border-[#CDBB9F] bg-[#FBF7EE] p-3"><span className="flex items-center gap-2 text-xs font-bold text-[#79552F]"><FileAudio size={16}/> Rekaman narasi</span><span className="mt-1 block text-[10px] text-[#8A7965]">Rekam langsung atau upload MP3, M4A, AAC, WAV, WebM · Maks. 15 MB</span><button type="button" onClick={()=>void toggleRecording(index)} disabled={recordingIndex!==null&&recordingIndex!==index} className={"mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold disabled:opacity-50 "+(recordingIndex===index?"bg-rose-600 text-white":"bg-[#431714] text-white")}>{recordingIndex===index?<><Square size={14}/> Hentikan rekaman</>:<><Mic size={14}/> Rekam suara langsung</>}</button><input type="file" accept="audio/mpeg,audio/mp4,audio/wav,audio/x-m4a,audio/aac,audio/webm" onChange={e=>chooseAudio(index,e.target.files?.[0]??null)} className="mt-3 block w-full text-[10px] file:mr-2 file:rounded-full file:border-0 file:bg-[#EDE0C7] file:px-3 file:py-1.5 file:text-[10px] file:font-bold file:text-[#79552F]"/>{page.audio&&<p className="mt-3 truncate text-[10px] text-emerald-800">✓ {page.audio.name}{page.duration? " · "+page.duration+" detik":""}</p>}</div>
       </div>
      </section>)}</div>
      <button type="button" onClick={addPage} disabled={pages.length>=20} className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#BDA98C] px-4 py-2.5 text-xs font-bold text-[#79552F] disabled:opacity-40"><Plus size={15}/> Tambah halaman</button>
@@ -145,7 +175,7 @@ export default function SellerStoriesPage(){
     <button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#431714] px-5 py-3.5 text-xs font-bold text-white hover:bg-[#61251E] disabled:cursor-wait disabled:opacity-60">{saving?<><UploadCloud size={16}/> Mengunggah cerita...</>:<>Kirim untuk kurasi admin <ArrowRight size={15}/></>}</button>
    </form>
    <aside className="space-y-5">
-    <section className="rounded-2xl border border-[#DED3C1] bg-[#FDFAF3] p-5"><h2 className="font-display text-xl text-[#431714]">Alur publikasi</h2><div className="mt-4 space-y-4 text-xs text-[#756654]"><p className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F3EBDD] font-bold text-[#79552F]">1</span>Isi halaman, ilustrasi, dan rekaman suara.</p><p className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F3EBDD] font-bold text-[#79552F]">2</span>Kirim cerita untuk diperiksa admin.</p><p className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F3EBDD] font-bold text-[#79552F]">3</span>Setelah disetujui, cerita tampil di katalog dan QR Code dapat dibagikan.</p></div></section>
+    <section className="rounded-2xl border border-[#DED3C1] bg-[#FDFAF3] p-5"><h2 className="font-display text-xl text-[#431714]">Alur publikasi</h2><div className="mt-4 space-y-4 text-xs text-[#756654]"><p className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F3EBDD] font-bold text-[#79552F]">1</span>Isi cerita, upload ilustrasi, lalu rekam narasi langsung atau upload audio.</p><p className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F3EBDD] font-bold text-[#79552F]">2</span>Kirim cerita untuk diperiksa admin.</p><p className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F3EBDD] font-bold text-[#79552F]">3</span>Setelah disetujui, cerita tampil di katalog dan QR Code dapat dibagikan.</p></div></section>
     <section className="rounded-2xl border border-[#DED3C1] bg-[#FDFAF3] p-5"><div className="flex items-center justify-between"><h2 className="font-display text-xl text-[#431714]">Cerita saya</h2><button onClick={()=>void load()} className="text-[10px] font-bold text-[#93372A]">Muat ulang</button></div>
      {loading?<p className="py-6 text-center text-xs text-[#8A7965]">Memuat cerita...</p>:stories.length===0?<p className="py-6 text-center text-xs text-[#8A7965]">Belum ada cerita yang dibuat.</p>:<div className="mt-3 space-y-3">{stories.map(story=><article key={story.id} className="rounded-xl border border-[#E7DDCC] bg-white p-3"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><h3 className="text-xs font-bold text-[#431714]">{story.name}</h3><p className="mt-1 text-[10px] text-[#8A7965]">{story.pages?.length??0} halaman</p></div><span className={"shrink-0 rounded-full px-2 py-1 text-[9px] font-bold "+(statusStyle[story.status]??statusStyle.draft)}>{statusLabel[story.status]??story.status}</span></div>{story.moderation_note&&<p className="mt-2 rounded-lg bg-rose-50 p-2 text-[10px] text-rose-700">Catatan admin: {story.moderation_note}</p>}{story.status==="active"&&<div className="mt-3 flex items-center gap-3 border-t border-[#EEE5D9] pt-3"><QRCodeSVG value={origin+"/cerita/"+story.slug} size={76} level="M" includeMargin/><div className="min-w-0"><p className="text-[10px] font-bold text-[#431714]">QR Cerita aktif</p><Link href={"/cerita/"+story.slug} target="_blank" className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-[#93372A]">Buka cerita <ArrowRight size={12}/></Link><p className="mt-1 text-[9px] text-[#8A7965]">Simpan atau cetak QR ini.</p></div></div>}</article>)}</div>}
     </section>
