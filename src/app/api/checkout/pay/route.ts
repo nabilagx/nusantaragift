@@ -75,6 +75,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Item pesanan tidak ditemukan." }, { status: 409 });
     }
 
+    const { data: existingPayment, error: existingPaymentError } = await supabase
+      .from("payments")
+      .select("payment_url")
+      .eq("order_id", typedOrder.id)
+      .eq("provider", "midtrans")
+      .eq("status", "pending")
+      .not("payment_url", "is", null)
+      .maybeSingle();
+    if (existingPaymentError) throw existingPaymentError;
+    if (existingPayment?.payment_url) {
+      return NextResponse.json({ payment: { paymentUrl: existingPayment.payment_url } });
+    }
+
     const total = amount(typedOrder.total_amount);
     const itemDetails = orderItems.map((item) => ({
       id: item.product_name.slice(0, 50),
@@ -115,6 +128,18 @@ export async function POST(request: Request) {
       p_amount: total,
     });
     if (saveError) {
+      // A parallel request may have created the pending attempt first.
+      const { data: racedPayment } = await supabase
+        .from("payments")
+        .select("payment_url")
+        .eq("order_id", typedOrder.id)
+        .eq("provider", "midtrans")
+        .eq("status", "pending")
+        .not("payment_url", "is", null)
+        .maybeSingle();
+      if (racedPayment?.payment_url) {
+        return NextResponse.json({ payment: { paymentUrl: racedPayment.payment_url } });
+      }
       console.error("Failed to save Midtrans payment reference:", saveError.message);
       return NextResponse.json({ error: "Transaksi berhasil dibuat, tetapi data pembayaran belum tersimpan. Hubungi admin sebelum mencoba lagi." }, { status: 500 });
     }
