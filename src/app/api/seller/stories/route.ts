@@ -25,11 +25,8 @@ export async function GET() {
   if (error) return fail("Gagal memuat cerita UMKM.", 500);
   const stories = await Promise.all((data ?? []).map(async (story) => {
     const pages = await Promise.all((story.story_pages ?? []).map(async (page: { illustration_url: string; audio_url: string; [key: string]: unknown }) => {
-      const [image, audio] = await Promise.all([
-        auth.supabase.storage.from("story-media").createSignedUrl(page.illustration_url, 3600),
-        auth.supabase.storage.from("story-media").createSignedUrl(page.audio_url, 3600),
-      ]);
-      return { ...page, illustration_path: page.illustration_url, audio_path: page.audio_url, illustration_url: image.data?.signedUrl ?? "", audio_url: audio.data?.signedUrl ?? "" };
+      const audio = await auth.supabase.storage.from("story-media").createSignedUrl(page.audio_url, 3600);
+      return { ...page, illustration_path: page.illustration_url, audio_path: page.audio_url, illustration_url: page.illustration_url, audio_url: audio.data?.signedUrl ?? "" };
     }));
     return { ...story, pages: pages.sort((a, b) => Number((a as unknown as { page_number: number }).page_number) - Number((b as unknown as { page_number: number }).page_number)) };
   }));
@@ -82,17 +79,16 @@ export async function PUT(request: Request) {
     const page = pages[i] as Record<string, unknown>;
     const title = typeof page.title === "string" ? page.title.trim().slice(0, 120) : "";
     const text = typeof page.body === "string" ? page.body.trim() : "";
-    const imagePath = typeof page.illustration_url === "string" ? page.illustration_url : "";
+    const imageUrl = typeof page.illustration_url === "string" ? page.illustration_url.trim() : "";
     const audioPath = typeof page.audio_url === "string" ? page.audio_url : "";
     const expectedPrefix = auth.user.id + "/" + productId + "/";
-    if (text.length < 10 || text.length > 5000 || !imagePath.startsWith(expectedPrefix) || !audioPath.startsWith(expectedPrefix)) return fail("Isi atau lokasi media halaman " + (i + 1) + " tidak valid.");
-    const [image, audio] = await Promise.all([
-      auth.supabase.storage.from("story-media").createSignedUrl(imagePath, 60),
-      auth.supabase.storage.from("story-media").createSignedUrl(audioPath, 60),
-    ]);
-    if (image.error || audio.error) return fail("Ilustrasi atau audio halaman " + (i + 1) + " belum berhasil diunggah.");
+    let parsedImage: URL;
+    try { parsedImage = new URL(imageUrl); } catch { return fail("Masukkan URL ilustrasi yang valid pada halaman " + (i + 1) + "."); }
+    if (text.length < 10 || text.length > 5000 || parsedImage.protocol !== "https:" || parsedImage.username || parsedImage.password || !audioPath.startsWith(expectedPrefix)) return fail("Isi, URL ilustrasi HTTPS, atau lokasi audio halaman " + (i + 1) + " tidak valid.");
+    const audio = await auth.supabase.storage.from("story-media").createSignedUrl(audioPath, 60);
+    if (audio.error) return fail("Audio halaman " + (i + 1) + " belum berhasil diunggah.");
     const duration = Number(page.duration);
-    rows.push({ product_id: productId, page_number: i + 1, page_title: title || null, body: text, illustration_url: imagePath, audio_url: audioPath, audio_duration_seconds: Number.isFinite(duration) && duration > 0 ? Math.round(duration) : null });
+    rows.push({ product_id: productId, page_number: i + 1, page_title: title || null, body: text, illustration_url: imageUrl, audio_url: audioPath, audio_duration_seconds: Number.isFinite(duration) && duration > 0 ? Math.round(duration) : null });
   }
   const { error: insertError } = await auth.supabase.from("story_pages").upsert(rows, { onConflict: "product_id,page_number" });
   if (insertError) {
