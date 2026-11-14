@@ -34,7 +34,7 @@ export async function GET() {
   const [sellerNames, categoryNames, itemResult] = await Promise.all([
     sellerIds.length ? supabase.from("seller_profiles").select("user_id,business_name").in("user_id", sellerIds) : Promise.resolve({ data: [], error: null }),
     categoryIds.length ? supabase.from("categories").select("id,name").in("id", categoryIds) : Promise.resolve({ data: [], error: null }),
-    orderIds.length ? supabase.from("order_items").select("order_id,product_name,quantity,line_total").in("order_id", orderIds) : Promise.resolve({ data: [], error: null }),
+    orderIds.length ? supabase.from("order_items").select("order_id,product_id,product_name,quantity,line_total").in("order_id", orderIds) : Promise.resolve({ data: [], error: null }),
   ]);
   if (sellerNames.error || categoryNames.error || itemResult.error) return NextResponse.json({ error: "Gagal memuat detail katalog atau transaksi." }, { status: 500 });
 
@@ -48,6 +48,11 @@ export async function GET() {
   }
   const normalizedOrders = orders.map(o => ({ ...o, subtotal:Number(o.subtotal), gift_card_fee:Number(o.gift_card_fee), shipping_cost:Number(o.shipping_cost), total_amount:Number(o.total_amount), order_items:items.get(o.id) ?? [] }));
   const paid = normalizedOrders.filter(o => o.payment_status === "paid");
+  const paidOrderIds = new Set(paid.map(o => o.id));
+  const salesByProduct = new Map<string, number>();
+  for (const item of itemResult.data ?? []) {
+    if (item.product_id && paidOrderIds.has(item.order_id)) salesByProduct.set(item.product_id, (salesByProduct.get(item.product_id) ?? 0) + Number(item.quantity ?? 0));
+  }
   const now = new Date();
   const trend = Array.from({length:7}, (_, index) => {
     const day = new Date(now);
@@ -60,7 +65,7 @@ export async function GET() {
   return NextResponse.json({
     notifications: notifications ?? [],
     products: pending.map(p => ({...p,price:Number(p.price),seller_name:sellerMap.get(p.seller_id) ?? "Mitra UMKM",category_name:categoryMap.get(p.category_id) ?? "Tanpa kategori"})),
-    catalog: allProducts.map(p => ({...p,price:Number(p.price),seller_name:sellerMap.get(p.seller_id) ?? "Mitra UMKM",category_name:categoryMap.get(p.category_id) ?? "Tanpa kategori"})),
+    catalog: allProducts.map(p => ({...p,price:Number(p.price),sales_count:salesByProduct.get(p.id) ?? 0,seller_name:sellerMap.get(p.seller_id) ?? "Mitra UMKM",category_name:categoryMap.get(p.category_id) ?? "Tanpa kategori"})),
     orders: normalizedOrders,
     metrics: {
       totalOrders: normalizedOrders.length, paidOrders: paid.length,
