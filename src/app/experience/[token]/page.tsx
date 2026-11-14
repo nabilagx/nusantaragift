@@ -1,4 +1,5 @@
 "use client";
+// Recipient-verified seven-day digital story experience.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
