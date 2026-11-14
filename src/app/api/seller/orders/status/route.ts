@@ -10,7 +10,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const orderNumber = typeof body.orderNumber === "string" ? body.orderNumber : "";
-  const status = body.status === "processing" || body.status === "shipped" ? body.status : "";
+  const status = ["processing", "shipped", "completed"].includes(body.status) ? body.status : "";
   const courier = typeof body.courier === "string" ? body.courier.trim().slice(0, 60) : "";
   const trackingNumber = typeof body.trackingNumber === "string" ? body.trackingNumber.trim().slice(0, 100) : "";
   if (!orderNumber || !status || (status === "shipped" && (!courier || !trackingNumber))) {

@@ -1,3 +1,2 @@
-import SellerDashboardPage from "../dashboard/page";
-
-export default function Page() { return <SellerDashboardPage module="orders" />; }
+import SellerOrdersPage from "./SellerOrdersPage";
+export default function Page() { return <SellerOrdersPage />; }
