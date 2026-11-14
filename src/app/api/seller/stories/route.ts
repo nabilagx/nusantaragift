@@ -48,12 +48,6 @@ export async function POST(request: Request) {
   if (!Number.isSafeInteger(price) || price < 1000 || price > 100000000 || !Number.isSafeInteger(stock) || stock < 1 || stock > 10000 || cover.protocol !== "https:" || cover.username || cover.password) return fail("Harga, stok, atau URL cover tidak valid.");
   const description = typeof body.description === "string" ? body.description.trim() : "";
   const category = typeof body.category === "string" ? body.category : "";
-  const price = Number(body.price);
-  const stock = Number(body.stock);
-  const coverUrl = typeof body.coverUrl === "string" ? body.coverUrl.trim() : "";
-  let cover: URL;
-  try { cover = new URL(coverUrl); } catch { return fail("Masukkan URL cover yang valid."); }
-  if (!Number.isSafeInteger(price) || price < 1000 || price > 100000000 || !Number.isSafeInteger(stock) || stock < 1 || stock > 10000 || cover.protocol !== "https:" || cover.username || cover.password) return fail("Harga, stok, atau URL cover tidak valid.");
   if (title.length < 3 || title.length > 120 || description.length < 20 || description.length > 2000) return fail("Judul harus 3–120 karakter dan deskripsi 20–2.000 karakter.");
   if (!["budaya", "dongeng", "inspirasi", "sejarah", "edukasi"].includes(category)) return fail("Kategori cerita tidak valid.");
   const { data: categoryRow } = await auth.supabase.from("categories").select("id").eq("slug", "cerita").maybeSingle();
@@ -80,6 +74,12 @@ export async function PUT(request: Request) {
   const productId = typeof body.productId === "string" ? body.productId : "";
   const pages = body.pages;
   const category = typeof body.category === "string" ? body.category : "";
+  const price = Number(body.price);
+  const stock = Number(body.stock);
+  const coverUrl = typeof body.coverUrl === "string" ? body.coverUrl.trim() : "";
+  let cover: URL;
+  try { cover = new URL(coverUrl); } catch { return fail("Masukkan URL cover yang valid."); }
+  if (!Number.isSafeInteger(price) || price < 1000 || price > 100000000 || !Number.isSafeInteger(stock) || stock < 1 || stock > 10000 || cover.protocol !== "https:" || cover.username || cover.password) return fail("Harga, stok, atau URL cover tidak valid.");
   if (!["budaya", "dongeng", "inspirasi", "sejarah", "edukasi"].includes(category)) return fail("Kategori cerita tidak valid.");
   if (!productId || !Array.isArray(pages) || pages.length < 1 || pages.length > 20) return fail("Data halaman cerita tidak valid.");
   const { data: product, error: productError } = await auth.supabase.from("products")
