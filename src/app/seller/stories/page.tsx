@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, FileAudio, FileImage, Mic, Plus, Square, Trash2, UploadCloud } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { createClient } from "@/lib/supabase/client";
@@ -32,8 +32,7 @@ const emptyPage = (): PageDraft => ({title:"",body:"",image:null,audio:null,audi
 
 export default function SellerStoriesPage(){
  const router=useRouter();
- const searchParams=useSearchParams();
- const editId=searchParams.get("edit");
+ const [editId,setEditId]=useState<string|null>(null);
  const [stories,setStories]=useState<Story[]>([]);
  const [pages,setPages]=useState<PageDraft[]>([emptyPage()]);
  const [title,setTitle]=useState("");
@@ -62,7 +61,7 @@ export default function SellerStoriesPage(){
   }catch(e){setError(e instanceof Error?e.message:"Gagal memuat cerita.");}
   finally{setLoading(false);}
  }
- useEffect(()=>{void load();},[]);
+ useEffect(()=>{void load();const id=new URLSearchParams(window.location.search).get("edit");if(id)setEditId(id);},[]);
  useEffect(()=>{
   if(!editId||editLoaded===editId||stories.length===0)return;
   const story=stories.find(item=>item.id===editId);
