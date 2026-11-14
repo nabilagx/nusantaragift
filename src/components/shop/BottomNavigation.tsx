@@ -42,7 +42,11 @@ function NavigationIcon({
     );
   }
 
-  if (icon === "book") {\n    return <BookOpen className={common.className} color={common.stroke} strokeWidth={common.strokeWidth} />;\n  }\n\n  if (icon === "heart") {
+  if (icon === "book") {
+    return <BookOpen className={common.className} color={common.stroke} strokeWidth={common.strokeWidth} />;
+  }
+
+  if (icon === "heart") {
     return (
       <svg {...common} fill="none">
         <path
