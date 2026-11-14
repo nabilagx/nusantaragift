@@ -49,6 +49,10 @@ export async function PATCH(request: Request) {
     .select("id,name,status,delivery_type").eq("id", id).eq("delivery_type", "digital-audio").maybeSingle();
   if (findError || !story) return fail("Cerita tidak ditemukan.", 404);
   if (status === "rejected" && note.length < 5) return fail("Tuliskan alasan penolakan minimal 5 karakter.");
+  if (status === "active") {
+    const { count, error: pageCountError } = await auth.supabase.from("story_pages").select("id", { count: "exact", head: true }).eq("product_id", id);
+    if (pageCountError || !count || count < 1) return fail("Cerita belum memiliki halaman yang lengkap.", 400);
+  }
   const { data, error } = await auth.supabase.from("products")
     .update({ status, moderation_note: status === "rejected" ? note : null, updated_at: new Date().toISOString() })
     .eq("id", id).eq("delivery_type", "digital-audio")
