@@ -62,7 +62,7 @@ begin
       order_status=case when fulfillment_type='digital' then 'completed' else 'paid' end,
       paid_at=now(),delivered_at=case when fulfillment_type='digital' then now() else delivered_at end,
       updated_at=now() where id=v_order.id returning * into v_order;
-    if v_order.fulfillment_type='digital' then
+    if v_order.fulfillment_type in ('digital','mixed') then
       insert into public.story_gift_access(order_id,recipient_user_id,recipient_email,expires_at)
       values(v_order.id,v_order.digital_recipient_user_id,v_order.recipient_email,now()+interval '7 days')
       on conflict(order_id) do nothing returning access_token into v_access_token;
