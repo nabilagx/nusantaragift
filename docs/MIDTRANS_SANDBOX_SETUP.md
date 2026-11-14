@@ -76,3 +76,18 @@ webhook NusantaraGift selesai dibuat dan dideploy.
 - [ ] `MIDTRANS_IS_PRODUCTION=false`.
 - [ ] Tidak ada kredensial asli di GitHub.
 - [ ] Checkout dan webhook sudah selesai diintegrasikan sebelum tes end-to-end.
+
+
+## Midtrans Snap Redirect and Notification
+
+The checkout creates a Snap Redirect transaction only after the administrator has set the shipping quote. The browser is redirected to the Midtrans-hosted payment page.
+
+Add this server-only environment variable in Vercel (Secret / Sensitive, Production):
+- `SUPABASE_SERVICE_ROLE_KEY`: the NusantaraGift Supabase project's service-role key (or supported Supabase secret API key). Never prefix it with `NEXT_PUBLIC_`.
+
+Configure the Midtrans Sandbox Payment Notification URL to:
+`https://<your-production-domain>/api/midtrans/notification`
+
+The webhook verifies Midtrans' SHA-512 `signature_key`, checks the amount against the stored order/payment amount, and updates payment/order status through a database function restricted to `service_role`. Do not make this endpoint callable with the public Supabase key.
+
+For local development, add the same secret to the local `.env.local` only. Do not commit it.
