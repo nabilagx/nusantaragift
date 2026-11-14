@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Clock3, Eye, FileAudio, FileImage, RefreshCw, X } from "lucide-react";
+import { Check, Clock3, Eye, FileAudio, RefreshCw, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import DashboardShell, { type DashboardNavItem } from "@/components/dashboard/DashboardShell";
 
