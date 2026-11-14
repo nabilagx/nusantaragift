@@ -82,6 +82,7 @@ export default function SellerStoriesPage(){
    const created=await createResponse.json();if(!createResponse.ok)throw new Error(created.error||"Draft cerita gagal dibuat.");
    const productId=String(created.productId);
    const supabase=createClient();
+   const {data:{user}}=await supabase.auth.getUser();if(!user)throw new Error("Sesi login berakhir. Silakan login kembali.");
    const uploaded:string[]=[];
    try{
     const pagePayload=[];
@@ -89,8 +90,8 @@ export default function SellerStoriesPage(){
      const p=pages[i];if(!p.image||!p.audio)throw new Error("Halaman "+(i+1)+" belum lengkap.");
      const imageExt=p.image.type==="image/png"?"png":p.image.type==="image/webp"?"webp":"jpg";
      const audioExt=p.audio.type==="audio/mpeg"?"mp3":p.audio.type==="audio/wav"?"wav":p.audio.type==="audio/aac"?"aac":"m4a";
-     const imagePath=productId+"/"+(i+1)+"-illustration-"+crypto.randomUUID()+"."+imageExt;
-     const audioPath=productId+"/"+(i+1)+"-narration-"+crypto.randomUUID()+"."+audioExt;
+     const imagePath=user.id+"/"+productId+"/"+(i+1)+"-illustration-"+crypto.randomUUID()+"."+imageExt;
+     const audioPath=user.id+"/"+productId+"/"+(i+1)+"-narration-"+crypto.randomUUID()+"."+audioExt;
      const [imageResult,audioResult]=await Promise.all([
       supabase.storage.from("story-media").upload(imagePath,p.image,{contentType:p.image.type,upsert:false}),
       supabase.storage.from("story-media").upload(audioPath,p.audio,{contentType:p.audio.type,upsert:false})
