@@ -52,3 +52,6 @@ begin
     'courier',v_order.shipping_courier,'trackingNumber',v_order.tracking_number);
 end;
 $function$;
+
+-- Disable the legacy customer-triggerable payment simulator permanently.
+revoke execute on function public.update_demo_payment(text, text) from public, anon, authenticated;
