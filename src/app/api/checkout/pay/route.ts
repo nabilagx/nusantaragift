@@ -103,7 +103,6 @@ export async function POST(request: Request) {
         first_name: typedOrder.recipient_name.slice(0, 50),
         email: typedOrder.recipient_email || user.email || undefined,
         phone: typedOrder.recipient_phone,
-        shipping_address: typedOrder.shipping_address ?? undefined,
       },
       callbacks: {
         finish: `${siteOrigin}/checkout/payment/${encodeURIComponent(orderNumber)}?payment=finish`,
