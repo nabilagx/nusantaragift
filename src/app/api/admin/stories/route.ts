@@ -32,7 +32,7 @@ export async function GET() {
   if (error) return fail("Gagal memuat antrean cerita.", 500);
   const stories = await Promise.all((data ?? []).map(async (story) => ({
     ...story,
-    pages: (await withSignedMedia(auth.supabase, (story.story_pages ?? []) as Record<string, unknown>[])).sort((a, b) => Number(a.page_number) - Number(b.page_number)),
+    pages: (await withSignedMedia(auth.supabase, (story.story_pages ?? []) as Record<string, unknown>[])).sort((a, b) => Number(a["page_number"]) - Number(b["page_number"])),
   })));
   return NextResponse.json({ stories });
 }
