@@ -70,6 +70,8 @@ export async function PUT(request: Request) {
   const body = await request.json().catch(() => ({}));
   const productId = typeof body.productId === "string" ? body.productId : "";
   const pages = body.pages;
+  const category = typeof body.category === "string" ? body.category : "";
+  if (!["budaya", "dongeng", "inspirasi", "sejarah", "edukasi"].includes(category)) return fail("Kategori cerita tidak valid.");
   if (!productId || !Array.isArray(pages) || pages.length < 1 || pages.length > 20) return fail("Data halaman cerita tidak valid.");
   const { data: product, error: productError } = await auth.supabase.from("products")
     .select("id,status,delivery_type").eq("id", productId).eq("seller_id", auth.user.id).maybeSingle();
