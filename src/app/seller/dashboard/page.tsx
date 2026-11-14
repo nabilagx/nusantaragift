@@ -25,7 +25,6 @@ type SellerProfile = { business_name: string; slug: string; description: string 
 const nav: DashboardNavItem[] = [
   { label: "Ringkasan", href: "/seller/dashboard", icon: "overview" },
   { label: "Katalog Produk", href: "/seller/products", icon: "products" },
-  { label: "Cerita Audio", href: "/seller/stories", icon: "moderation" },
   { label: "Tambah Produk", href: "/seller/products/new", icon: "add" },
   { label: "Iklan & Promosi", href: "/seller/ads", icon: "ads" },
   { label: "Pesanan", href: "/seller/orders", icon: "orders" },
@@ -96,10 +95,11 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ name: "", description: "", category: "cerita", price: "", stock: "1", imageUrl: "" });
+  const [form, setForm] = useState({ name: "", description: "", category: "rasa", price: "", stock: "1", imageUrl: "" });
   const [editing, setEditing] = useState<SellerProduct | null>(null);
   const [orderFilter, setOrderFilter] = useState("all");
   const [productFilter, setProductFilter] = useState("all");
+  const [productCategoryFilter, setProductCategoryFilter] = useState("all");
   const [shipping, setShipping] = useState<Record<string, { courier: string; tracking: string }>>({});
 
   const load = useCallback(async () => {
@@ -204,10 +204,21 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
     (orderFilter === "processing" && o.order_status === "processing") ||
     (orderFilter === "shipped" && ["shipped", "delivered", "completed"].includes(o.order_status))
   ), [orders, orderFilter]);
-  const filteredProducts = useMemo(() => products.filter(p =>
-    productFilter === "all" || (productFilter === "active" && p.status === "active") ||
-    (productFilter === "pending" && p.status === "pending_review") || (productFilter === "rejected" && p.status === "rejected") || (productFilter === "archived" && p.status === "archived")
-  ), [products, productFilter]);
+  const salesByProduct = useMemo(() => orders.flatMap(order => order.items).reduce<Record<string, number>>((acc, item) => {
+    acc[item.product_name] = (acc[item.product_name] ?? 0) + item.quantity; return acc;
+  }, {}), [orders]);
+  const filteredProducts = useMemo(() => {
+    const result = products.filter(p => {
+      const summary = p.metadata?.summary as { type?: string } | undefined;
+      const category = p.metadata?.story_category ? "cerita" : summary?.type === "Cerita digital" ? "cerita" : summary?.type;
+      const statusMatch = productFilter === "all" || productFilter === "best-selling" ||
+        (productFilter === "active" && p.status === "active") || (productFilter === "pending" && p.status === "pending_review") ||
+        (productFilter === "rejected" && p.status === "rejected") || (productFilter === "archived" && p.status === "archived");
+      return statusMatch && (productCategoryFilter === "all" || category === productCategoryFilter);
+    });
+    if (productFilter === "best-selling") result.sort((a, b) => (salesByProduct[b.name] ?? 0) - (salesByProduct[a.name] ?? 0));
+    return result;
+  }, [products, productFilter, productCategoryFilter, salesByProduct]);
   const latestOrders = [...orders].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)).slice(0, 4);
   const lowStock = activeProducts.filter(p => p.stock <= 5);
   const bestSeller = Object.values(orders.flatMap(o => o.items).reduce<Record<string, { name: string; quantity: number }>>((acc, item) => {
@@ -290,7 +301,12 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.9fr_1fr]">
         <article className="rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5">
           <h3 className="font-display text-[20px] text-[#431714]">Semua produk</h3>
-          <div className="my-4 flex flex-wrap gap-2">{[{id:"all",label:"Semua"},{id:"active",label:"Tayang"},{id:"pending",label:"Review"},{id:"rejected",label:"Perlu revisi"},{id:"archived",label:"Arsip"}].map(f=><button key={f.id} onClick={()=>setProductFilter(f.id)} className={`rounded-full px-3 py-2 text-[9px] font-bold ${productFilter===f.id ? "bg-[#431714] text-white" : "border border-[#DCD2C1] text-[#7A6C5E]"}`}>{f.label}</button>)}</div>
+          <div className="my-4 space-y-3">
+            <div className="flex flex-wrap gap-2">{[{id:"all",label:"Semua status"},{id:"active",label:"Tayang"},{id:"pending",label:"Review"},{id:"rejected",label:"Perlu revisi"},{id:"archived",label:"Arsip"}].map(f=><button key={f.id} onClick={()=>setProductFilter(f.id)} className={`rounded-full px-3 py-2 text-[9px] font-bold ${productFilter===f.id ? "bg-[#431714] text-white" : "border border-[#DCD2C1] text-[#7A6C5E]"}`}>{f.label}</button>)}</div>
+            <div className="flex flex-wrap gap-2">{[{id:"all",label:"Semua kategori"},{id:"cerita",label:"Cerita"},{id:"rasa",label:"Rasa"},{id:"budaya",label:"Budaya"}].map(f=><button key={f.id} onClick={()=>setProductCategoryFilter(f.id)} className={`rounded-full px-3 py-2 text-[9px] font-bold ${productCategoryFilter===f.id ? "bg-[#EAD9BE] text-[#431714]" : "border border-[#DCD2C1] text-[#7A6C5E]"}`}>{f.label}</button>)}
+              <button onClick={()=>setProductFilter("best-selling")} className={`rounded-full px-3 py-2 text-[9px] font-bold ${productFilter==="best-selling" ? "bg-[#4F6E59] text-white" : "border border-[#C8D7C7] text-[#4F6E59]"}`}>Terlaris ↓</button>
+            </div>
+          </div>
           <div className="hidden grid-cols-[1.4fr_.55fr_.8fr_.8fr] border-y border-[#DCD2C1] py-3 text-[8px] font-bold tracking-[.12em] text-[#7A6C5E] sm:grid"><span>NAMA PRODUK</span><span>STOK</span><span>HARGA</span><span>STATUS</span></div>
           {loading ? <p className="py-8 text-center text-[11px] text-[#7A6C5E]">Memuat katalog...</p> : filteredProducts.length === 0 ? <p className="py-10 text-center text-[11px] text-[#7A6C5E]">Belum ada produk pada kategori ini.</p> :
             filteredProducts.map(p => <div key={p.id} className="grid grid-cols-[1fr_auto] gap-3 border-b border-[#E8DFD2] py-3 sm:grid-cols-[1.4fr_.55fr_.8fr_.8fr] sm:items-center">
@@ -298,7 +314,7 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
               <span className="text-[10px] text-[#7A6C5E]">{p.stock}</span><span className="hidden text-[10px] text-[#7A6C5E] sm:block">{money(p.price)}</span>
               <span className={`w-fit rounded-full px-2.5 py-1 text-[8px] font-bold ${statusClass(p.status)}`}>{p.status === "archived" ? "Diarsipkan" : (labels[p.status] ?? p.status)}</span>
               <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-4">
-                <button disabled={busy===p.id} onClick={()=>openEdit(p)} className="rounded-full border border-[#DCD2C1] px-3 py-1.5 text-[8px] font-bold text-[#431714] hover:bg-[#F3EBDD]">Edit detail</button>
+                <button disabled={busy===p.id} onClick={()=>{const summary=p.metadata?.summary as {type?:string}|undefined;const isStory=p.metadata?.story_category||summary?.type==="Cerita digital";if(isStory)router.push("/seller/stories?edit="+p.id);else openEdit(p);}} className="rounded-full border border-[#DCD2C1] px-3 py-1.5 text-[8px] font-bold text-[#431714] hover:bg-[#F3EBDD]">{p.metadata?.story_category || (p.metadata?.summary as {type?:string}|undefined)?.type==="Cerita digital" ? "Edit cerita" : "Edit detail"}</button>
                 <button disabled={busy===p.id || p.stock===0 || p.status==="archived"} onClick={()=>void changeProduct(p.id,"stock",-1)} className="h-7 w-7 rounded-full border border-[#DCD2C1] text-[12px] font-bold disabled:opacity-30" aria-label="Kurangi stok">−</button>
                 <button disabled={busy===p.id || p.status==="archived"} onClick={()=>void changeProduct(p.id,"stock",1)} className="h-7 w-7 rounded-full border border-[#DCD2C1] text-[12px] font-bold disabled:opacity-30" aria-label="Tambah stok">+</button>
                 <span className="text-[8px] text-[#7A6C5E]">Atur stok cepat</span>
@@ -328,13 +344,15 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="text-[9px] font-bold tracking-[.08em] text-[#7A6C5E]">NAMA PRODUK<input required minLength={3} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Contoh: Hampers Pesisir" className="mt-2 w-full rounded-lg border border-[#DCD2C1] bg-white px-3 py-3 text-[11px] font-medium tracking-normal text-[#251E1A] outline-none focus:border-[#93372A]"/></label>
             <label className="text-[9px] font-bold tracking-[.08em] text-[#7A6C5E]">KATEGORI<select value={form.category} onChange={e=>setForm({...form,category:e.target.value})} className="mt-2 w-full rounded-lg border border-[#DCD2C1] bg-white px-3 py-3 text-[11px] font-medium tracking-normal text-[#251E1A]"><option value="cerita">Cerita</option><option value="rasa">Rasa</option><option value="budaya">Budaya</option></select></label>
+            {form.category !== "cerita" && <>
             <label className="text-[9px] font-bold tracking-[.08em] text-[#7A6C5E]">HARGA JUAL (RP)<input required type="number" min="1" step="1" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} placeholder="485000" className="mt-2 w-full rounded-lg border border-[#DCD2C1] bg-white px-3 py-3 text-[11px] font-medium tracking-normal text-[#251E1A]"/></label>
             <label className="text-[9px] font-bold tracking-[.08em] text-[#7A6C5E]">JUMLAH STOK<input required type="number" min="0" step="1" value={form.stock} onChange={e=>setForm({...form,stock:e.target.value})} placeholder="24" className="mt-2 w-full rounded-lg border border-[#DCD2C1] bg-white px-3 py-3 text-[11px] font-medium tracking-normal text-[#251E1A]"/></label>
             <label className="text-[9px] font-bold tracking-[.08em] text-[#7A6C5E] sm:col-span-2">CERITA PRODUK<textarea required minLength={10} rows={4} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Ceritakan asal, bahan, proses pembuatan, dan nilai di balik karya..." className="mt-2 w-full resize-y rounded-lg border border-[#DCD2C1] bg-white px-3 py-3 text-[11px] font-medium leading-5 tracking-normal text-[#251E1A]"/></label>
             <label className="text-[9px] font-bold tracking-[.08em] text-[#7A6C5E] sm:col-span-2">FOTO UTAMA · URL GAMBAR PUBLIK<input type="url" value={form.imageUrl} onChange={e=>setForm({...form,imageUrl:e.target.value})} placeholder="Tempel link Google Drive, Imgur, atau URL gambar langsung" className="mt-2 w-full rounded-lg border border-[#DCD2C1] bg-white px-3 py-3 text-[11px] font-medium tracking-normal text-[#251E1A]"/><span className="mt-2 block text-[9px] font-normal tracking-normal text-[#8D7E6D]">Gunakan link yang dapat diakses publik. Untuk Google Drive, ubah akses menjadi “Anyone with the link”.</span></label>
             {form.imageUrl && <div className="sm:col-span-2"><div className="flex items-center gap-4 rounded-lg border border-[#E7DDCC] bg-white p-3"><img src={imageUrl(form.imageUrl)} alt="Pratinjau foto produk" className="h-20 w-20 rounded-md bg-[#F7F1E3] object-cover" onError={e=>{e.currentTarget.style.visibility="hidden";}}/><div><p className="text-[10px] font-bold text-[#431714]">Pratinjau foto utama</p><p className="mt-1 text-[9px] text-[#7A6C5E]">Pastikan foto tajam, terang, dan menampilkan produk secara jelas.</p></div></div></div>}
+            </>}
           </div>
-          <button disabled={saving} className="mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-[#431714] px-6 text-[10px] font-bold text-white disabled:opacity-50">{saving ? "Mengirim..." : "Kirim untuk kurasi"} <ArrowRight size={14}/></button>
+          {form.category === "cerita" ? <button type="button" onClick={()=>router.push("/seller/stories?mode=create")} className="mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-[#431714] px-6 text-[10px] font-bold text-white">Next · Buat halaman cerita <ArrowRight size={14}/></button> : <button disabled={saving} className="mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-[#431714] px-6 text-[10px] font-bold text-white disabled:opacity-50">{saving ? "Mengirim..." : "Kirim untuk kurasi"} <ArrowRight size={14}/></button>}
         </form>
         <aside className="rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5">
           <p className="text-[8px] font-bold tracking-[.14em] text-[#C79854]">KELENGKAPAN</p><h3 className="mt-2 font-display text-[20px] text-[#431714]">Panduan publikasi</h3>

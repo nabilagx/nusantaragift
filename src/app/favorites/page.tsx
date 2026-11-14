@@ -12,6 +12,7 @@ export default function FavoritePage() {
   const { favorites, toggleFavorite, isLoaded, error } = useWishlist();
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [productsLoaded, setProductsLoaded] = useState(false);
+  const [visitStats, setVisitStats] = useState<{ id: string; count: number; lastVisitedAt: number }[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -19,6 +20,12 @@ export default function FavoritePage() {
       .then((items) => { if (active) setProducts(items); })
       .catch((loadError) => console.error("Gagal memuat katalog favorit:", loadError))
       .finally(() => { if (active) setProductsLoaded(true); });
+    try {
+      const stored = localStorage.getItem("nusantaragift-visited-products");
+      const parsed: unknown = stored ? JSON.parse(stored) : [];
+      if (Array.isArray(parsed)) setVisitStats(parsed.filter((entry): entry is { id: string; count: number; lastVisitedAt: number } =>
+        typeof entry?.id === "string" && typeof entry?.count === "number" && typeof entry?.lastVisitedAt === "number"));
+    } catch { setVisitStats([]); }
     return () => { active = false; };
   }, []);
 
@@ -26,6 +33,11 @@ export default function FavoritePage() {
     () => products.filter((item) => favorites.includes(item.id)),
     [products, favorites]
   );
+  const visitedProducts = useMemo(() => visitStats
+    .slice().sort((a, b) => b.count - a.count || b.lastVisitedAt - a.lastVisitedAt)
+    .map((visit) => ({ ...visit, product: products.find((item) => item.id === visit.id) }))
+    .filter((visit): visit is typeof visit & { product: ShopProduct } => Boolean(visit.product))
+    .slice(0, 8), [visitStats, products]);
   const loading = !isLoaded || !productsLoaded;
 
   if (loading) {
@@ -58,6 +70,22 @@ export default function FavoritePage() {
       </header>
 
       {error && <p role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+
+      {visitedProducts.length > 0 && (
+        <section className="mb-8 rounded-2xl border border-[#E9DFCE] bg-[#FDFAF3] p-4 sm:p-5">
+          <div className="mb-4"><h2 className="text-lg font-bold text-[#431714]">Sering kamu kunjungi</h2><p className="mt-1 text-xs text-[#77716A]">Produk yang paling sering kamu buka akan muncul di sini.</p></div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {visitedProducts.map(({ id, count, product }) => (
+              <Link key={id} href={"/shop/" + id} className="overflow-hidden rounded-xl border border-[#E9DFCE] bg-white transition hover:shadow-sm">
+                <div className="flex aspect-[4/3] items-center justify-center bg-[#F3EBDD] p-3">
+                  {product.image ? <img src={product.image} alt={product.imageAlt || product.title} className="h-full w-full object-contain" loading="lazy"/> : <ShoppingBag size={30} className="text-[#93372A]/50"/>}
+                </div>
+                <div className="p-3"><p className="line-clamp-2 text-xs font-bold text-[#431714]">{product.title}</p><p className="mt-1 text-[10px] text-[#93372A]">Dikunjungi {count}×</p></div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {favoriteProducts.length === 0 ? (
         <section className="flex min-h-[65vh] flex-col items-center justify-center py-8 text-center">
