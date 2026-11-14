@@ -31,7 +31,7 @@ export async function GET() {
       ]);
       return { ...page, illustration_url: image.data?.signedUrl ?? "", audio_url: audio.data?.signedUrl ?? "" };
     }));
-    return { ...story, pages: pages.sort((a, b) => Number(a.page_number) - Number(b.page_number)) };
+    return { ...story, pages: pages.sort((a, b) => Number(a["page_number"]) - Number(b["page_number"])) };
   }));
   return NextResponse.json({ stories });
 }
