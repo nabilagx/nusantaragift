@@ -76,7 +76,7 @@ grant insert, update, delete on public.story_pages to authenticated;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
-  'story-media', 'story-media', true, 15728640,
+  'story-media', 'story-media', false, 15728640,
   array['image/jpeg', 'image/png', 'image/webp', 'audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/x-m4a']
 )
 on conflict (id) do update
@@ -110,4 +110,43 @@ create policy "UMKM delete own story media"
   using (
     bucket_id = 'story-media'
     and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+-- Keep story media private. Published assets are readable only when their
+-- object path is referenced by a page belonging to an active story.
+update storage.buckets set public = false where id = 'story-media';
+
+drop policy if exists "Public can read media for published stories" on storage.objects;
+create policy "Public can read media for published stories"
+  on storage.objects for select to anon, authenticated
+  using (
+    bucket_id = 'story-media'
+    and exists (
+      select 1
+      from public.story_pages sp
+      join public.products p on p.id = sp.product_id
+      where split_part(name, '/', 2) = p.id::text
+        and p.delivery_type = 'digital-audio'
+        and p.status = 'active'
+        and (sp.illustration_url = name or sp.audio_url = name)
+    )
+  );
+
+drop policy if exists "UMKM read own story media" on storage.objects;
+create policy "UMKM read own story media"
+  on storage.objects for select to authenticated
+  using (
+    bucket_id = 'story-media'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+drop policy if exists "Admins read all story media" on storage.objects;
+create policy "Admins read all story media"
+  on storage.objects for select to authenticated
+  using (
+    bucket_id = 'story-media'
+    and exists (
+      select 1 from public.profiles p
+      where p.id = (select auth.uid()) and p.role_id = 'admin'
+    )
   );
