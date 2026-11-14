@@ -261,7 +261,7 @@ export default function CheckoutPage() {
           </div>
 
           <div className="rounded-2xl border border-[#E9DFCE] bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-5 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F0CDD5]/50"><Gift className="text-[#93372A]" size={20} /></div><div><h2 className="text-lg font-bold">Gift Card</h2><p className="text-xs text-[#77716A]">{digitalOnly ? "Gift Card digital PNG dengan QR akses cerita, nama pengirim, penerima, dan pesan personal." : "Kartu ucapan yang disertakan bersama kado."}</p></div></div>
+            <div className="mb-5 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F0CDD5]/50"><Gift className="text-[#93372A]" size={20} /></div><div><h2 className="text-lg font-bold">Gift Card</h2><p className="text-xs text-[#77716A]">{hasDigitalStories ? "Gift Card digital PNG dengan QR akses cerita, nama pengirim, penerima, dan pesan personal." : "Kartu ucapan yang disertakan bersama kado."}</p></div></div>
             <p className="mb-3 text-sm font-semibold">Pilih paket desain Gift Card</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {giftCards.map((card) => <button key={card.id} type="button" onClick={() => chooseGiftCard(card.id)} className={`rounded-xl border p-3 text-left transition ${form.giftCardType === card.id ? "border-[#93372A] bg-[#FFF5F0] ring-1 ring-[#93372A]" : "border-[#E9DFCE] hover:bg-[#FFFCF7]"}`}>
@@ -299,7 +299,7 @@ export default function CheckoutPage() {
                 {form.giftCardType === "special" && <p className="mt-3 text-xs text-[#77716A]">Paket Spesial menyediakan ornamen terbatas. Font dan warna tulisan menggunakan gaya bawaan.</p>}
                 {isLuxury && <p className="mt-3 text-xs text-[#77716A]">Paket Mewah membuka seluruh ornamen, pilihan font, dan warna tulisan.</p>}
               </div>
-              <p className="text-xs leading-relaxed text-[#77716A]">{digitalOnly ? "Gift Card PNG final akan dibuat setelah pembayaran berhasil dan QR akses cerita aktif selama 7 hari." : "Preview merupakan gambaran desain kartu. Gift Card akan dicetak dan dimasukkan ke dalam paket kado."}</p>
+              <p className="text-xs leading-relaxed text-[#77716A]">{hasDigitalStories ? "Gift Card PNG final akan dibuat setelah pembayaran berhasil dan QR akses cerita aktif selama 7 hari." : "Preview merupakan gambaran desain kartu. Gift Card akan dicetak dan dimasukkan ke dalam paket kado."}</p>
             </div>}
           </div>
 
