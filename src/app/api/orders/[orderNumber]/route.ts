@@ -25,31 +25,24 @@ export async function GET(_request: Request, context: Context) {
     .eq("order_id", order.id);
   if (itemError) return NextResponse.json({ error: "Gagal mengambil item pesanan." }, { status: 500 });
 
-  return NextResponse.json({
-    order: {
-      id: order.id,
-      orderId: order.order_number,
-      name: order.recipient_name,
-      email: order.recipient_email,
-      phone: order.recipient_phone,
-      paymentMethod: order.payment_method ?? "qris",
-      subtotal: Number(order.subtotal),
-      shippingCost: Number(order.shipping_cost),
-      giftCardPrice: Number(order.gift_card_fee),
-      total: Number(order.total_amount),
-      shippingQuoteStatus: order.shipping_quote_status,
-      paymentStatus: order.payment_status === "paid" ? "PAID" : order.payment_status === "failed" ? "CANCELLED" : order.payment_status.toUpperCase(),
-      orderStatus: order.order_status,
-      courier: order.shipping_courier,
-      trackingNumber: order.tracking_number,
-      createdAt: order.created_at,
-      items: (items ?? []).map((item) => ({
-        title: item.product_name,
-        image: item.product_image_url,
-        price: Number(item.unit_price),
-        quantity: item.quantity,
-        subtotal: Number(item.line_total),
-      })),
-    },
-  });
+  const paymentStatus = order.payment_status === "paid" ? "PAID"
+    : order.payment_status === "failed" ? "CANCELLED"
+    : order.payment_status === "expired" ? "EXPIRED"
+    : order.payment_status === "refunded" ? "REFUNDED"
+    : order.payment_status.toUpperCase();
+
+  return NextResponse.json({ order: {
+    id: order.id, orderId: order.order_number, name: order.recipient_name,
+    email: order.recipient_email, phone: order.recipient_phone,
+    paymentMethod: order.payment_method ?? "qris",
+    subtotal: Number(order.subtotal), shippingCost: Number(order.shipping_cost),
+    giftCardPrice: Number(order.gift_card_fee), total: Number(order.total_amount),
+    shippingQuoteStatus: order.shipping_quote_status, paymentStatus,
+    orderStatus: order.order_status, courier: order.shipping_courier,
+    trackingNumber: order.tracking_number, createdAt: order.created_at,
+    items: (items ?? []).map((item) => ({
+      title: item.product_name, image: item.product_image_url,
+      price: Number(item.unit_price), quantity: item.quantity, subtotal: Number(item.line_total),
+    })),
+  }});
 }
