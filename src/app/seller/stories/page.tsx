@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Clock3, FileAudio, FileImage, Plus, QrCode, Trash2, UploadCloud } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { createClient } from "@/lib/supabase/client";
 import DashboardShell, { type DashboardNavItem } from "@/components/dashboard/DashboardShell";
 
 type PageDraft = { title: string; body: string; image: File | null; audio: File | null; imagePreview: string; duration: number | null };
@@ -77,12 +78,36 @@ export default function SellerStoriesPage(){
   event.preventDefault();setSaving(true);setError("");setMessage("");
   try{
    if(pages.some(p=>!p.body.trim()||!p.image||!p.audio))throw new Error("Setiap halaman wajib memiliki teks, ilustrasi, dan rekaman audio.");
-   const form=new FormData();
-   form.set("title",title);form.set("description",description);form.set("category",category);
-   form.set("pages",JSON.stringify(pages.map(p=>({title:p.title,body:p.body,duration:p.duration}))));
-   pages.forEach((p,i)=>{if(p.image)form.set("image-"+i,p.image);if(p.audio)form.set("audio-"+i,p.audio);});
-   const r=await fetch("/api/seller/stories",{method:"POST",body:form});
-   const d=await r.json();if(!r.ok)throw new Error(d.error||"Cerita gagal dikirim.");
+   const createResponse=await fetch("/api/seller/stories",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title,description,category})});
+   const created=await createResponse.json();if(!createResponse.ok)throw new Error(created.error||"Draft cerita gagal dibuat.");
+   const productId=String(created.productId);
+   const supabase=createClient();
+   const uploaded:string[]=[];
+   try{
+    const pagePayload=[];
+    for(let i=0;i<pages.length;i++){
+     const p=pages[i];if(!p.image||!p.audio)throw new Error("Halaman "+(i+1)+" belum lengkap.");
+     const imageExt=p.image.type==="image/png"?"png":p.image.type==="image/webp"?"webp":"jpg";
+     const audioExt=p.audio.type==="audio/mpeg"?"mp3":p.audio.type==="audio/wav"?"wav":p.audio.type==="audio/aac"?"aac":"m4a";
+     const imagePath=productId+"/"+(i+1)+"-illustration-"+crypto.randomUUID()+"."+imageExt;
+     const audioPath=productId+"/"+(i+1)+"-narration-"+crypto.randomUUID()+"."+audioExt;
+     const [imageResult,audioResult]=await Promise.all([
+      supabase.storage.from("story-media").upload(imagePath,p.image,{contentType:p.image.type,upsert:false}),
+      supabase.storage.from("story-media").upload(audioPath,p.audio,{contentType:p.audio.type,upsert:false})
+     ]);
+     if(imageResult.error)throw new Error("Upload ilustrasi halaman "+(i+1)+" gagal: "+imageResult.error.message);
+     uploaded.push(imagePath);
+     if(audioResult.error)throw new Error("Upload audio halaman "+(i+1)+" gagal: "+audioResult.error.message);
+     uploaded.push(audioPath);
+     pagePayload.push({title:p.title,body:p.body,duration:p.duration,illustration_url:imagePath,audio_url:audioPath});
+    }
+    const saveResponse=await fetch("/api/seller/stories",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({productId,category,pages:pagePayload})});
+    const saved=await saveResponse.json();if(!saveResponse.ok)throw new Error(saved.error||"Halaman cerita gagal disimpan.");
+   }catch(uploadError){
+    await supabase.storage.from("story-media").remove(uploaded);
+    await fetch("/api/seller/stories",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({productId})});
+    throw uploadError;
+   }
    setMessage("Cerita berhasil dikirim ke admin untuk ditinjau.");
    setTitle("");setDescription("");setCategory("budaya");setPages([emptyPage()]);
    await load();
