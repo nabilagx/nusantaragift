@@ -33,6 +33,7 @@ const nav: DashboardNavItem[] = [
   { label: "Ringkasan", href: "/admin/dashboard", icon: "overview" },
   { label: "Verifikasi UMKM", href: "/admin/umkm", icon: "verification" },
   { label: "Kurasi Produk", href: "/admin/products", icon: "curation" },
+  { label: "Kurasi Cerita", href: "/admin/stories", icon: "moderation" },
   { label: "Kurasi Iklan", href: "/admin/ads", icon: "ads" },
   { label: "Pesanan & Pembayaran", href: "/admin/orders", icon: "orders" },
   { label: "Laporan Komunitas", href: "/admin/reports", icon: "reports" },
