@@ -77,7 +77,7 @@ grant insert, update, delete on public.story_pages to authenticated;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
   'story-media', 'story-media', false, 15728640,
-  array['image/jpeg', 'image/png', 'image/webp', 'audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/x-m4a']
+  array['image/jpeg', 'image/png', 'image/webp', 'audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/x-m4a', 'audio/aac']
 )
 on conflict (id) do update
 set public = excluded.public,
