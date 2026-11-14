@@ -69,8 +69,8 @@ create policy "Admins manage all story pages"
     )
   );
 
--- Explicit grants are required because Data API exposure is not automatic
--- for newly created tables on current Supabase projects.
+-- Limit table privileges explicitly; RLS then decides which rows are visible.
+revoke all on public.story_pages from anon, authenticated;
 grant select on public.story_pages to anon, authenticated;
 grant insert, update, delete on public.story_pages to authenticated;
 
