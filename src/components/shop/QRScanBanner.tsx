@@ -14,10 +14,10 @@ export default function QRScanBanner() {
 
       <div className="min-w-0 flex-1">
         <h3 className="font-semibold text-[#34291F]">
-          Punya Gift Card?
+          Scan QR Cerita atau Gift Card
         </h3>
         <p className="mt-0.5 text-xs text-[#79552F]">
-          Scan QR Code untuk menikmati pengalaman digital hadiahmu.
+          Buka cerita digital atau pengalaman gift card melalui QR Code.
         </p>
       </div>
 
