@@ -89,11 +89,11 @@ export default function SellerStoriesPage(){
    const url=new URL(trimmed);
    if(url.protocol!=="https:")return "";
    if(url.hostname==="drive.google.com"){
-    const id=url.searchParams.get("id")||url.pathname.match(/\\/file\\/d\\/([^/]+)/)?.[1];
+    const id=url.searchParams.get("id")||url.pathname.match(/\/file\/d\/([^/]+)/)?.[1];
     return id?"https://drive.google.com/thumbnail?id="+encodeURIComponent(id)+"&sz=w1200":trimmed;
    }
    if(url.hostname==="imgur.com"||url.hostname==="www.imgur.com"){
-    const id=url.pathname.split("/").filter(Boolean).pop()?.replace(/\\.[^.]+$/,"");
+    const id=url.pathname.split("/").filter(Boolean).pop()?.replace(/\.[^.]+$/,"");
     return id?"https://i.imgur.com/"+id+".jpg":trimmed;
    }
    return trimmed;
