@@ -265,3 +265,44 @@ revoke all on function public.apply_midtrans_notification(text,text,text,text,te
 grant execute on function public.apply_midtrans_notification(text,text,text,text,text,numeric,text,jsonb) to service_role;
 revoke all on function public.seller_update_order_status(text,text,text,text) from public,anon;
 grant execute on function public.seller_update_order_status(text,text,text,text) to authenticated;
+
+-- Restrict story pages and audio to the exact recipient account during the 7-day entitlement.
+create schema if not exists private;
+revoke all on schema private from public,anon,authenticated;
+grant usage on schema private to authenticated;
+
+create or replace function private.can_read_story_product(p_product_id uuid)
+returns boolean language sql stable security definer
+set search_path=public,pg_temp
+as $$
+  select exists(select 1 from public.story_gift_access a
+    join public.orders o on o.id=a.order_id
+    join public.order_items oi on oi.order_id=o.id
+    where oi.product_id=p_product_id and a.recipient_user_id=auth.uid()
+      and a.expires_at>now() and o.payment_status='paid');
+$$;
+revoke all on function private.can_read_story_product(uuid) from public,anon;
+grant execute on function private.can_read_story_product(uuid) to authenticated;
+
+create or replace function private.can_read_story_audio(p_object_name text)
+returns boolean language sql stable security definer
+set search_path=public,pg_temp
+as $$
+  select exists(select 1 from public.story_pages sp
+    join public.story_gift_access a on a.order_id is not null
+    join public.orders o on o.id=a.order_id
+    join public.order_items oi on oi.order_id=o.id and oi.product_id=sp.product_id
+    where sp.audio_url=p_object_name and a.recipient_user_id=auth.uid()
+      and a.expires_at>now() and o.payment_status='paid');
+$$;
+revoke all on function private.can_read_story_audio(text) from public,anon;
+grant execute on function private.can_read_story_audio(text) to authenticated;
+
+drop policy if exists "Public can read pages of published stories" on public.story_pages;
+drop policy if exists "Recipients can read pages of purchased stories" on public.story_pages;
+create policy "Recipients can read pages of purchased stories" on public.story_pages
+  for select to authenticated using (private.can_read_story_product(product_id));
+drop policy if exists "Public can read audio for published stories" on storage.objects;
+drop policy if exists "Recipients can read purchased story audio" on storage.objects;
+create policy "Recipients can read purchased story audio" on storage.objects
+  for select to authenticated using (bucket_id='story-media' and private.can_read_story_audio(name));
