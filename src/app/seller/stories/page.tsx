@@ -13,7 +13,6 @@ type Story = { id: string; slug: string; name: string; description: string | nul
 const nav: DashboardNavItem[] = [
  {label:"Ringkasan",href:"/seller/dashboard",icon:"overview"},
  {label:"Katalog Produk",href:"/seller/products",icon:"products"},
- {label:"Cerita Audio",href:"/seller/stories",icon:"moderation"},
  {label:"Tambah Produk",href:"/seller/products/new",icon:"add"},
  {label:"Iklan & Promosi",href:"/seller/ads",icon:"ads"},
  {label:"Pesanan",href:"/seller/orders",icon:"orders"},
@@ -24,7 +23,6 @@ const nav: DashboardNavItem[] = [
 const mobileNav: DashboardNavItem[] = [
  {label:"Beranda",href:"/seller/dashboard",icon:"overview"},
  {label:"Produk",href:"/seller/products",icon:"products"},
- {label:"Cerita",href:"/seller/stories",icon:"moderation"},
  {label:"Pesanan",href:"/seller/orders",icon:"orders"},
  {label:"Toko",href:"/seller/profile",icon:"profile"},
 ];
