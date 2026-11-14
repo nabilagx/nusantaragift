@@ -42,6 +42,7 @@ export async function PATCH(request: Request) {
   const status = body.status;
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 1000) : "";
   if (!id || !["active", "rejected"].includes(status)) return fail("Data moderasi tidak valid.");
+  if (status === "active" && body.reviewConfirmed !== true) return fail("Konfirmasi pemeriksaan seluruh teks, ilustrasi, dan audio wajib dilakukan sebelum publikasi.");
   const { data: story, error: findError } = await auth.supabase.from("products")
     .select("id,name,status,delivery_type").eq("id", id).eq("delivery_type", "digital-audio").maybeSingle();
   if (findError || !story) return fail("Cerita tidak ditemukan.", 404);
