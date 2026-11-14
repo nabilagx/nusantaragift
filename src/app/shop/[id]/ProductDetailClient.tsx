@@ -1,7 +1,6 @@
 
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -85,6 +84,8 @@ export default function ProductDetailPage({ id }: { id: string }) {
   }, [id]);
 
   const [showPreview, setShowPreview] = useState(false);
+  const [imageZoom, setImageZoom] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [added, setAdded] = useState(false);
   const [cartError, setCartError] = useState("");
 
@@ -196,16 +197,10 @@ export default function ProductDetailPage({ id }: { id: string }) {
         {/* Product image */}
         <section className="relative flex min-h-[320px] items-center justify-center overflow-hidden rounded-[28px] bg-[#F0CDD5] p-6 sm:min-h-[440px] lg:min-h-[580px]">
           {product.image ? (
-            <div className="relative h-[280px] w-full sm:h-[400px] lg:h-[510px]">
-              <Image
-                src={product.image}
-                alt={product.imageAlt || product.title}
-                fill
-                priority
-                sizes="(max-width: 1024px) 90vw, 50vw"
-                className="object-contain"
-              />
-            </div>
+            <button type="button" onClick={() => { setZoomLevel(1); setImageZoom(true); }} aria-label="Perbesar cover cerita" className="group relative h-[280px] w-full cursor-zoom-in sm:h-[400px] lg:h-[510px]">
+              <img src={product.image} alt={product.imageAlt || product.title} className="h-full w-full object-contain transition group-hover:scale-[1.02]" />
+              <span className="absolute bottom-3 right-3 rounded-full bg-white/90 px-3 py-2 text-[10px] font-bold text-[#93372A] shadow">Klik untuk perbesar</span>
+            </button>
           ) : (
             <span className="text-8xl text-[#93372A]/40">
               ✺
@@ -350,6 +345,19 @@ export default function ProductDetailPage({ id }: { id: string }) {
           </button>
         </div>
       </div>
+
+      {imageZoom && product.image && (
+        <div className="fixed inset-0 z-[80] flex flex-col items-center justify-center bg-black/90 p-4" role="dialog" aria-modal="true" aria-label="Perbesar gambar cover" onClick={() => setImageZoom(false)}>
+          <button type="button" onClick={() => setImageZoom(false)} aria-label="Tutup gambar" className="absolute right-5 top-5 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-2xl text-white">×</button>
+          <div className="flex max-h-[78vh] w-full items-center justify-center overflow-auto" onClick={event => event.stopPropagation()}>
+            <img src={product.image} alt={product.imageAlt || product.title} className="max-h-[78vh] max-w-full object-contain transition-transform duration-150" style={{ transform: `scale(${zoomLevel})` }} />
+          </div>
+          <div className="mt-5 flex w-full max-w-xs items-center gap-3 rounded-full bg-white/10 px-4 py-3 text-white" onClick={event => event.stopPropagation()}>
+            <span className="text-xs">−</span><input aria-label="Zoom gambar" type="range" min="1" max="3" step="0.1" value={zoomLevel} onChange={event => setZoomLevel(Number(event.target.value))} className="w-full accent-white"/><span className="text-xs">+</span><span className="w-10 text-right text-xs tabular-nums">{Math.round(zoomLevel*100)}%</span>
+          </div>
+          <p className="mt-2 text-[10px] text-white/70">Geser pengatur untuk zoom · Klik area gelap untuk menutup</p>
+        </div>
+      )}
 
       {/* Preview modal */}
       {showPreview && (

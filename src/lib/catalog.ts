@@ -12,6 +12,7 @@ type ProductRow = {
   delivery_type: "physical" | "digital-audio";
   metadata: Record<string, unknown> | null;
   categories: { name: string } | { name: string }[] | null;
+  story_pages?: { page_number: number; illustration_url: string | null }[];
 };
 
 function asString(value: unknown, fallback: string) {
@@ -31,7 +32,7 @@ function toShopProduct(row: ProductRow): ShopProduct {
     title: row.name,
     description: row.description ?? "",
     price: new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(amount),
-    image: asString(meta.image, ""),
+    image: asString(meta.image, [...(row.story_pages ?? [])].sort((a, b) => a.page_number - b.page_number)[0]?.illustration_url ?? ""),
     imageAlt: asString(meta.imageAlt, row.name),
     cardColor: asString(meta.cardColor, "#E6DBBC"),
     accentColor: asString(meta.accentColor, "#ECD7A1"),
@@ -53,7 +54,7 @@ export async function getCatalogProducts(): Promise<ShopProduct[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("products")
-    .select("id,slug,name,description,price,stock,delivery_type,metadata,categories(name)")
+    .select("id,slug,name,description,price,stock,delivery_type,metadata,categories(name),story_pages(page_number,illustration_url)")
     .eq("status", "active")
     .order("created_at", { ascending: false });
 
