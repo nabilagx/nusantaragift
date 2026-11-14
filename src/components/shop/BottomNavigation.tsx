@@ -3,9 +3,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BookOpen } from "lucide-react";
 
 const navigationItems = [
   { label: "Beranda", href: "/shop", icon: "home" },
+  { label: "Cerita", href: "/cerita", icon: "book" },
   { label: "Favorit", href: "/favorites", icon: "heart" },
   { label: "Keranjang", href: "/cart", icon: "bag" },
   { label: "Profil", href: "/profile", icon: "profile" },
@@ -40,7 +42,7 @@ function NavigationIcon({
     );
   }
 
-  if (icon === "heart") {
+  if (icon === "book") {\n    return <BookOpen className={common.className} color={common.stroke} strokeWidth={common.strokeWidth} />;\n  }\n\n  if (icon === "heart") {
     return (
       <svg {...common} fill="none">
         <path
