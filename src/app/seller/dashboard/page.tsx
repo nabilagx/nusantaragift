@@ -25,7 +25,6 @@ type SellerProfile = { business_name: string; slug: string; description: string 
 const nav: DashboardNavItem[] = [
   { label: "Ringkasan", href: "/seller/dashboard", icon: "overview" },
   { label: "Katalog Produk", href: "/seller/products", icon: "products" },
-  { label: "Cerita Audio", href: "/seller/stories", icon: "moderation" },
   { label: "Tambah Produk", href: "/seller/products/new", icon: "add" },
   { label: "Iklan & Promosi", href: "/seller/ads", icon: "ads" },
   { label: "Pesanan", href: "/seller/orders", icon: "orders" },
@@ -96,10 +95,11 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ name: "", description: "", category: "cerita", price: "", stock: "1", imageUrl: "" });
+  const [form, setForm] = useState({ name: "", description: "", category: "rasa", price: "", stock: "1", imageUrl: "" });
   const [editing, setEditing] = useState<SellerProduct | null>(null);
   const [orderFilter, setOrderFilter] = useState("all");
   const [productFilter, setProductFilter] = useState("all");
+  const [productCategoryFilter, setProductCategoryFilter] = useState("all");
   const [shipping, setShipping] = useState<Record<string, { courier: string; tracking: string }>>({});
 
   const load = useCallback(async () => {
@@ -204,10 +204,21 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
     (orderFilter === "processing" && o.order_status === "processing") ||
     (orderFilter === "shipped" && ["shipped", "delivered", "completed"].includes(o.order_status))
   ), [orders, orderFilter]);
-  const filteredProducts = useMemo(() => products.filter(p =>
-    productFilter === "all" || (productFilter === "active" && p.status === "active") ||
-    (productFilter === "pending" && p.status === "pending_review") || (productFilter === "rejected" && p.status === "rejected") || (productFilter === "archived" && p.status === "archived")
-  ), [products, productFilter]);
+  const salesByProduct = useMemo(() => orders.flatMap(order => order.items).reduce<Record<string, number>>((acc, item) => {
+    acc[item.product_name] = (acc[item.product_name] ?? 0) + item.quantity; return acc;
+  }, {}), [orders]);
+  const filteredProducts = useMemo(() => {
+    const result = products.filter(p => {
+      const summary = p.metadata?.summary as { type?: string } | undefined;
+      const category = p.metadata?.story_category ? "cerita" : summary?.type === "Cerita digital" ? "cerita" : summary?.type;
+      const statusMatch = productFilter === "all" || productFilter === "best-selling" ||
+        (productFilter === "active" && p.status === "active") || (productFilter === "pending" && p.status === "pending_review") ||
+        (productFilter === "rejected" && p.status === "rejected") || (productFilter === "archived" && p.status === "archived");
+      return statusMatch && (productCategoryFilter === "all" || category === productCategoryFilter);
+    });
+    if (productFilter === "best-selling") result.sort((a, b) => (salesByProduct[b.name] ?? 0) - (salesByProduct[a.name] ?? 0));
+    return result;
+  }, [products, productFilter, productCategoryFilter, salesByProduct]);
   const latestOrders = [...orders].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)).slice(0, 4);
   const lowStock = activeProducts.filter(p => p.stock <= 5);
   const bestSeller = Object.values(orders.flatMap(o => o.items).reduce<Record<string, { name: string; quantity: number }>>((acc, item) => {
