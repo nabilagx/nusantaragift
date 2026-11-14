@@ -19,7 +19,7 @@ export async function GET() {
   if (!orderIds.length) return NextResponse.json({ orders: [] });
 
   const { data: orders, error: orderError } = await supabase.from("orders")
-    .select("id,order_number,recipient_name,recipient_phone,shipping_address,subtotal,shipping_cost,total_amount,order_status,payment_status,created_at,shipped_at,tracking_number,shipping_courier")
+    .select("id,order_number,recipient_name,recipient_phone,shipping_address,subtotal,shipping_cost,total_amount,order_status,payment_status,created_at,shipped_at,tracking_number,shipping_courier,fulfillment_type")
     .in("id", orderIds).order("created_at", { ascending: false });
   if (orderError) {
     console.error("Seller orders:", orderError);

@@ -51,9 +51,18 @@ export async function POST(request: Request) {
     });
 
     if (error) {
-      const message = error.message || "Pesanan gagal dibuat.";
-      const status = message.includes("AUTH_REQUIRED") || message.includes("CUSTOMER_ONLY") ? 403
-        : message.includes("UNAVAILABLE") || message.includes("STOCK") ? 409 : 400;
+      const rawMessage = error.message || "Pesanan gagal dibuat.";
+      const friendlyMessages: Record<string,string> = {
+        RECIPIENT_EMAIL_REQUIRED: "Email penerima wajib diisi untuk Kado Cerita.",
+        RECIPIENT_ACCOUNT_NOT_VERIFIED: "Email penerima belum terdaftar dan terverifikasi sebagai akun Customer NusantaraGift.",
+        STORY_GIFT_CARD_REQUIRED: "Lengkapi desain Gift Card, nama pengirim, nama penerima, dan pesan personal.",
+        RECIPIENT_FIELDS_REQUIRED: "Lengkapi nama, nomor WhatsApp, dan alamat penerima untuk produk fisik.",
+        DIGITAL_ORDER_NO_FULFILLMENT: "Pesanan cerita digital tidak memerlukan proses pengiriman UMKM.",
+      };
+      const matchedCode = Object.keys(friendlyMessages).find(code => rawMessage.includes(code));
+      const message = matchedCode ? friendlyMessages[matchedCode] : rawMessage;
+      const status = rawMessage.includes("AUTH_REQUIRED") || rawMessage.includes("CUSTOMER_ONLY") ? 403
+        : rawMessage.includes("UNAVAILABLE") || rawMessage.includes("STOCK") ? 409 : 400;
       return NextResponse.json({ error: message }, { status });
     }
 

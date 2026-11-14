@@ -132,6 +132,9 @@ export default function CheckoutPage() {
     return product ? [{ ...product, quantity: cartItem.quantity, subtotal: parsePrice(product.price) * cartItem.quantity }] : [];
   }), [cart, products]);
   const totalItems = cartProducts.reduce((sum, item) => sum + item.quantity, 0);
+  const hasDigitalStories = cartProducts.some(item => item.deliveryType === "digital-audio");
+  const hasPhysicalProducts = cartProducts.some(item => item.deliveryType !== "digital-audio");
+  const digitalOnly = hasDigitalStories && !hasPhysicalProducts;
   const subtotal = cartProducts.reduce((sum, item) => sum + item.subtotal, 0);
   const selectedGiftCard = giftCards.find((card) => card.id === form.giftCardType);
   const giftCardPrice = selectedGiftCard?.price ?? 0;
@@ -140,6 +143,8 @@ export default function CheckoutPage() {
   const canUseOrnaments = form.giftCardType === "special" || isLuxury;
   const ornamentCatalog = isLuxury ? luxuryOrnaments : specialOrnaments;
   const selectedOrnamentData = ornaments.find((item) => item.id === selectedOrnament);
+
+  useEffect(() => { if (hasDigitalStories && form.giftCardType === "none") updateForm("giftCardType", "plain"); }, [digitalOnly, form.giftCardType]);
 
   function updateForm<K extends keyof CheckoutData>(field: K, value: CheckoutData[K]) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -193,6 +198,7 @@ export default function CheckoutPage() {
         fontFamily: isLuxury ? fontFamily : fonts[0].value,
         fontColor: isLuxury ? fontColor : getContrastText(cardColor),
         ornaments: canUseOrnaments ? ornaments : [],
+        giftRecipient: form.giftRecipient, giftSender: form.giftSender, giftMessage: form.giftMessage,
       };
       const response = await fetch("/api/checkout", {
         method: "POST",
@@ -244,17 +250,18 @@ export default function CheckoutPage() {
           </div>
 
           <div className="rounded-2xl border border-[#E9DFCE] bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-6 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F0CDD5]/50"><MapPin className="text-[#93372A]" size={20} /></div><div><h2 className="text-lg font-bold">Informasi Penerima</h2><p className="text-xs text-[#77716A]">Lengkapi data untuk pengiriman kado.</p></div></div>
+            <div className="mb-6 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F0CDD5]/50"><MapPin className="text-[#93372A]" size={20} /></div><div><h2 className="text-lg font-bold">{digitalOnly ? "Akun Penerima Cerita" : "Informasi Penerima"}</h2><p className="text-xs text-[#77716A]">{digitalOnly ? "Masukkan email akun Customer NusantaraGift penerima. Akses QR berlaku 7 hari." : "Lengkapi data untuk pengiriman kado."}</p></div></div>
             <div className="space-y-5">
-              <div><label htmlFor="name" className="mb-2 block text-sm font-semibold">Nama {form.recipientType === "self" ? "Lengkap" : "Penerima"}</label><div className="relative"><User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A99B89]" /><input id="name" required autoComplete="name" value={form.name} onChange={(e) => updateForm("name", e.target.value)} placeholder="Masukkan nama penerima" className="w-full rounded-xl border border-[#E9DFCE] bg-[#FFFCF7] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#93372A]" /></div></div>
-              <div><label htmlFor="phone" className="mb-2 block text-sm font-semibold">Nomor WhatsApp Penerima</label><div className="relative"><Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A99B89]" /><input id="phone" type="tel" required autoComplete="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="Contoh: 081234567890" className="w-full rounded-xl border border-[#E9DFCE] bg-[#FFFCF7] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#93372A]" /></div></div>
-              <div><label htmlFor="address" className="mb-2 block text-sm font-semibold">Alamat Lengkap Pengiriman</label><textarea id="address" required rows={4} autoComplete="street-address" value={form.address} onChange={(e) => updateForm("address", e.target.value)} placeholder="Nama jalan, nomor rumah, desa/kelurahan, kecamatan, kota, dan kode pos..." className="w-full resize-none rounded-xl border border-[#E9DFCE] bg-[#FFFCF7] px-4 py-3 text-sm outline-none focus:border-[#93372A]" /></div>
+              {hasDigitalStories && <div><label htmlFor="email" className="mb-2 block text-sm font-semibold">Email akun penerima cerita</label><div className="relative"><Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A99B89]"/><input id="email" type="email" required value={form.email} onChange={e=>updateForm("email",e.target.value.trim())} placeholder="email-terdaftar@example.com" className="w-full rounded-xl border border-[#E9DFCE] bg-[#FFFCF7] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#93372A]"/></div><p className="mt-2 text-[11px] leading-relaxed text-[#8A7965]">Email wajib sudah terdaftar, terverifikasi, dan memiliki akun Customer NusantaraGift.</p></div>}
+              {!digitalOnly && <div><label htmlFor="name" className="mb-2 block text-sm font-semibold">Nama {form.recipientType === "self" ? "Lengkap" : "Penerima"}</label><div className="relative"><User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A99B89]" /><input id="name" required autoComplete="name" value={form.name} onChange={(e) => updateForm("name", e.target.value)} placeholder="Masukkan nama penerima" className="w-full rounded-xl border border-[#E9DFCE] bg-[#FFFCF7] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#93372A]" /></div></div>}
+              {!digitalOnly && <div><label htmlFor="phone" className="mb-2 block text-sm font-semibold">Nomor WhatsApp Penerima</label><div className="relative"><Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A99B89]" /><input id="phone" type="tel" required autoComplete="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="Contoh: 081234567890" className="w-full rounded-xl border border-[#E9DFCE] bg-[#FFFCF7] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#93372A]" /></div></div>}
+              {!digitalOnly && <div><label htmlFor="address" className="mb-2 block text-sm font-semibold">Alamat Lengkap Pengiriman</label><textarea id="address" required rows={4} autoComplete="street-address" value={form.address} onChange={(e) => updateForm("address", e.target.value)} placeholder="Nama jalan, nomor rumah, desa/kelurahan, kecamatan, kota, dan kode pos..." className="w-full resize-none rounded-xl border border-[#E9DFCE] bg-[#FFFCF7] px-4 py-3 text-sm outline-none focus:border-[#93372A]" /></div>}
               <div><label htmlFor="notes" className="mb-2 block text-sm font-semibold">Catatan Tambahan <span className="ml-2 font-normal text-[#A99B89]">(Opsional)</span></label><div className="relative"><MessageSquare size={18} className="absolute left-4 top-4 text-[#A99B89]" /><textarea id="notes" rows={3} value={form.notes} onChange={(e) => updateForm("notes", e.target.value)} placeholder="Catatan untuk pesananmu..." className="w-full resize-none rounded-xl border border-[#E9DFCE] bg-[#FFFCF7] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#93372A]" /></div></div>
             </div>
           </div>
 
           <div className="rounded-2xl border border-[#E9DFCE] bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-5 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F0CDD5]/50"><Gift className="text-[#93372A]" size={20} /></div><div><h2 className="text-lg font-bold">Gift Card</h2><p className="text-xs text-[#77716A]">Kartu ucapan fisik yang disertakan bersama kado.</p></div></div>
+            <div className="mb-5 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F0CDD5]/50"><Gift className="text-[#93372A]" size={20} /></div><div><h2 className="text-lg font-bold">Gift Card</h2><p className="text-xs text-[#77716A]">{hasDigitalStories ? "Gift Card digital PNG dengan QR akses cerita, nama pengirim, penerima, dan pesan personal." : "Kartu ucapan yang disertakan bersama kado."}</p></div></div>
             <p className="mb-3 text-sm font-semibold">Pilih paket desain Gift Card</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {giftCards.map((card) => <button key={card.id} type="button" onClick={() => chooseGiftCard(card.id)} className={`rounded-xl border p-3 text-left transition ${form.giftCardType === card.id ? "border-[#93372A] bg-[#FFF5F0] ring-1 ring-[#93372A]" : "border-[#E9DFCE] hover:bg-[#FFFCF7]"}`}>
@@ -292,14 +299,14 @@ export default function CheckoutPage() {
                 {form.giftCardType === "special" && <p className="mt-3 text-xs text-[#77716A]">Paket Spesial menyediakan ornamen terbatas. Font dan warna tulisan menggunakan gaya bawaan.</p>}
                 {isLuxury && <p className="mt-3 text-xs text-[#77716A]">Paket Mewah membuka seluruh ornamen, pilihan font, dan warna tulisan.</p>}
               </div>
-              <p className="text-xs leading-relaxed text-[#77716A]">Preview merupakan gambaran desain kartu. Gift Card akan dicetak dan dimasukkan ke dalam paket kado.</p>
+              <p className="text-xs leading-relaxed text-[#77716A]">{hasDigitalStories ? "Gift Card PNG final akan dibuat setelah pembayaran berhasil dan QR akses cerita aktif selama 7 hari." : "Preview merupakan gambaran desain kartu. Gift Card akan dicetak dan dimasukkan ke dalam paket kado."}</p>
             </div>}
           </div>
 
           <div className="rounded-2xl border border-[#E9DFCE] bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-5 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F0CDD5]/50"><CreditCard className="text-[#93372A]" size={20} /></div><div><h2 className="text-lg font-bold">Metode Pembayaran</h2><p className="text-xs text-[#77716A]">Pilih metode pembayaran yang kamu inginkan.</p></div></div>
             <div className="space-y-3">{[{ id: "qris", title: "QRIS", detail: "Pembayaran melalui aplikasi e-wallet atau mobile banking" }, { id: "va", title: "Virtual Account", detail: "Pembayaran melalui nomor Virtual Account" }, { id: "bank", title: "Transfer Bank", detail: "Transfer melalui rekening bank" }].map((method) => <label key={method.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${form.paymentMethod === method.id ? "border-[#93372A] bg-[#FFF5F0]" : "border-[#E9DFCE]"}`}><input type="radio" name="paymentMethod" value={method.id} checked={form.paymentMethod === method.id} onChange={() => updateForm("paymentMethod", method.id as PaymentMethod)} className="mt-1 accent-[#93372A]" /><div><p className="text-sm font-bold">{method.title}</p><p className="mt-1 text-xs text-[#77716A]">{method.detail}</p></div></label>)}</div>
-            <p className="mt-4 rounded-xl bg-[#FFF9EE] p-3 text-xs leading-relaxed text-[#776650]">Setelah admin menetapkan ongkos kirim, kamu akan diarahkan ke halaman pembayaran Midtrans Sandbox. Metode pembayaran dipilih di halaman Midtrans.</p>
+            <p className="mt-4 rounded-xl bg-[#FFF9EE] p-3 text-xs leading-relaxed text-[#776650]">{digitalOnly ? "Tidak ada proses ongkir atau resi. Setelah pembayaran terverifikasi, pesanan otomatis selesai dan Gift Card PNG siap diunduh." : "Untuk produk fisik, admin menetapkan ongkos kirim sebelum pembayaran. Metode pembayaran dipilih di halaman Midtrans."}</p>
           </div>
         </section>
 
@@ -308,7 +315,7 @@ export default function CheckoutPage() {
           <div className="mt-5 space-y-4">{cartProducts.map((item) => <div key={item.id} className="flex gap-3"><div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl" style={{ backgroundColor: item.cardColor || "#E6DBBC" }}>{item.image && <img src={item.image} alt={item.imageAlt || item.title} loading="lazy" className="absolute inset-0 h-full w-full object-contain p-2" />}</div><div className="min-w-0 flex-1"><h3 className="line-clamp-2 text-sm font-semibold">{item.title}</h3><p className="mt-1 text-xs text-[#77716A]">{item.quantity} × {item.price}</p><span className="mt-1 inline-flex items-center gap-1 text-[10px] text-[#77716A]"><Truck size={12} /> Produk fisik</span></div><p className="shrink-0 text-sm font-bold text-[#93372A]">{formatRupiah(item.subtotal)}</p></div>)}</div>
           <div className="my-5 border-t border-dashed border-[#D9C9AF]" /><div className="flex justify-between text-sm text-[#77716A]"><span>Subtotal produk</span><span className="font-semibold text-[#34291F]">{formatRupiah(subtotal)}</span></div>
           <div className="mt-3 flex justify-between text-sm text-[#77716A]"><span>Gift Card</span><span className="font-semibold text-[#34291F]">{form.giftCardType === "none" ? "Tidak dipilih" : giftCardPrice === 0 ? "Gratis" : formatRupiah(giftCardPrice)}</span></div>
-          <div className="my-5 border-t border-dashed border-[#D9C9AF]" /><div className="flex items-center justify-between gap-3"><span className="font-semibold">Total sementara</span><span className="text-xl font-bold text-[#93372A]">{formatRupiah(total)}</span></div><p className="mt-2 text-[11px] leading-relaxed text-[#A99B89]">Total belum termasuk ongkos kirim.</p>
+          <div className="my-5 border-t border-dashed border-[#D9C9AF]" /><div className="flex items-center justify-between gap-3"><span className="font-semibold">Total sementara</span><span className="text-xl font-bold text-[#93372A]">{formatRupiah(total)}</span></div><p className="mt-2 text-[11px] leading-relaxed text-[#A99B89]">{digitalOnly ? "Tanpa ongkos kirim. QR aktif setelah pembayaran terverifikasi." : "Total belum termasuk ongkos kirim untuk produk fisik."}</p>
           <button type="submit" disabled={isSubmitting} className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#93372A] px-5 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#76291F]">{isSubmitting ? "Membuat Pesanan..." : "Lanjut ke Pembayaran"} <ArrowRight size={17} /></button>
           <Link href="/cart" className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-[#93372A] transition hover:underline"><ArrowLeft size={15} /> Kembali ke Keranjang</Link>
         </aside>
