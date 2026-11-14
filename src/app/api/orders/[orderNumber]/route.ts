@@ -27,7 +27,7 @@ export async function GET(_request: Request, context: Context) {
   if (itemError) return NextResponse.json({ error: "Gagal mengambil item pesanan." }, { status: 500 });
 
   let digitalGiftAccess: { token: string; expiresAt: string } | null = null;
-  if (order.fulfillment_type === "digital" && order.payment_status === "paid") {
+  if (order.fulfillment_type !== "physical" && order.payment_status === "paid") {
     const admin = createAdminClient();
     const { data: access } = await admin.from("story_gift_access").select("access_token,expires_at").eq("order_id", order.id).maybeSingle();
     if (access) digitalGiftAccess = { token: access.access_token, expiresAt: access.expires_at };
