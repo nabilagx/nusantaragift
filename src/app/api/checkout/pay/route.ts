@@ -16,6 +16,7 @@ type OrderRow = {
   shipping_quote_status: string;
   payment_status: string;
   shipping_address: Record<string, unknown> | null;
+  fulfillment_type: "physical" | "digital" | "mixed";
 };
 
 type OrderItemRow = {
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("id,order_number,recipient_name,recipient_email,recipient_phone,subtotal,shipping_cost,gift_card_fee,total_amount,shipping_quote_status,payment_status,shipping_address")
+      .select("id,order_number,recipient_name,recipient_email,recipient_phone,subtotal,shipping_cost,gift_card_fee,total_amount,shipping_quote_status,payment_status,shipping_address,fulfillment_type")
       .eq("order_number", orderNumber)
       .eq("buyer_id", user.id)
       .maybeSingle();
@@ -114,7 +115,7 @@ export async function POST(request: Request) {
       customer_details: {
         first_name: typedOrder.recipient_name.slice(0, 50),
         email: typedOrder.recipient_email || user.email || undefined,
-        phone: typedOrder.recipient_phone,
+        ...(typedOrder.fulfillment_type === "digital" ? {} : { phone: typedOrder.recipient_phone }),
       },
       callbacks: {
         finish: `${siteOrigin}/checkout/payment/${encodeURIComponent(orderNumber)}?payment=finish`,
