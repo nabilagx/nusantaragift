@@ -15,11 +15,8 @@ async function adminClient() {
 
 async function withSignedMedia(supabase: Awaited<ReturnType<typeof createClient>>, pages: Record<string, unknown>[]) {
   return Promise.all(pages.map(async (page) => {
-    const [image, audio] = await Promise.all([
-      supabase.storage.from("story-media").createSignedUrl(String(page.illustration_url), 3600),
-      supabase.storage.from("story-media").createSignedUrl(String(page.audio_url), 3600),
-    ]);
-    return { ...page, illustration_url: image.data?.signedUrl ?? "", audio_url: audio.data?.signedUrl ?? "" };
+    const audio = await supabase.storage.from("story-media").createSignedUrl(String(page.audio_url), 3600);
+    return { ...page, illustration_url: String(page.illustration_url ?? ""), audio_url: audio.data?.signedUrl ?? "" };
   }));
 }
 
@@ -45,13 +42,23 @@ export async function PATCH(request: Request) {
   const status = body.status;
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 1000) : "";
   if (!id || !["active", "rejected"].includes(status)) return fail("Data moderasi tidak valid.");
+  if (status === "active" && body.reviewConfirmed !== true) return fail("Konfirmasi pemeriksaan seluruh teks, ilustrasi, dan audio wajib dilakukan sebelum publikasi.");
   const { data: story, error: findError } = await auth.supabase.from("products")
     .select("id,name,status,delivery_type").eq("id", id).eq("delivery_type", "digital-audio").maybeSingle();
   if (findError || !story) return fail("Cerita tidak ditemukan.", 404);
   if (status === "rejected" && note.length < 5) return fail("Tuliskan alasan penolakan minimal 5 karakter.");
   if (status === "active") {
-    const { count, error: pageCountError } = await auth.supabase.from("story_pages").select("id", { count: "exact", head: true }).eq("product_id", id);
-    if (pageCountError || !count || count < 1) return fail("Cerita belum memiliki halaman yang lengkap.", 400);
+    const { data: pages, error: pageError } = await auth.supabase.from("story_pages")
+      .select("body,illustration_url,audio_url").eq("product_id", id).order("page_number", { ascending: true });
+    if (pageError || !pages?.length || pages.length > 20) return fail("Cerita belum memiliki halaman yang lengkap.", 400);
+    for (let index = 0; index < pages.length; index++) {
+      const page = pages[index];
+      let image: URL;
+      try { image = new URL(page.illustration_url); } catch { return fail("Ilustrasi halaman " + (index + 1) + " tidak valid.", 400); }
+      if (image.protocol !== "https:" || !page.body?.trim() || page.body.trim().length < 10) return fail("Konten atau ilustrasi halaman " + (index + 1) + " belum memenuhi syarat.", 400);
+      const audio = await auth.supabase.storage.from("story-media").createSignedUrl(page.audio_url, 60);
+      if (audio.error || !audio.data?.signedUrl) return fail("Audio halaman " + (index + 1) + " belum tersedia.", 400);
+    }
   }
   const { data, error } = await auth.supabase.from("products")
     .update({ status, moderation_note: status === "rejected" ? note : null, updated_at: new Date().toISOString() })

@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CheckCircle2, FileAudio, FileImage, Mic, Plus, Square, Trash2, UploadCloud } from "lucide-react";
+import { ArrowRight, CheckCircle2, Eye, FileAudio, FileImage, Mic, Plus, Square, Trash2, UploadCloud } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { createClient } from "@/lib/supabase/client";
 import DashboardShell, { type DashboardNavItem } from "@/components/dashboard/DashboardShell";
 
-type PageDraft = { title: string; body: string; image: File | null; audio: File | null; audioPreview: string; imagePreview: string; duration: number | null; imagePath?: string; audioPath?: string };
+type PageDraft = { title: string; body: string; imageUrl: string; audio: File | null; audioPreview: string; imagePreview: string; duration: number | null; audioPath?: string };
 type Story = { id: string; slug: string; name: string; description: string | null; status: string; moderation_note: string | null; metadata?: Record<string, unknown>; pages: { page_number: number; page_title: string | null; body: string; illustration_url: string; audio_url: string; illustration_path: string; audio_path: string; audio_duration_seconds: number | null }[] };
 const nav: DashboardNavItem[] = [
  {label:"Ringkasan",href:"/seller/dashboard",icon:"overview"},
@@ -28,7 +28,7 @@ const mobileNav: DashboardNavItem[] = [
 ];
 const statusLabel: Record<string,string> = {draft:"Draft",pending_review:"Menunggu kurasi",active:"Tayang",rejected:"Perlu revisi",archived:"Diarsipkan"};
 const statusStyle: Record<string,string> = {draft:"bg-stone-100 text-stone-700",pending_review:"bg-amber-100 text-amber-800",active:"bg-emerald-100 text-emerald-800",rejected:"bg-rose-100 text-rose-800",archived:"bg-stone-100 text-stone-500"};
-const emptyPage = (): PageDraft => ({title:"",body:"",image:null,audio:null,audioPreview:"",imagePreview:"",duration:null});
+const emptyPage = (): PageDraft => ({title:"",body:"",imageUrl:"",audio:null,audioPreview:"",imagePreview:"",duration:null});
 
 export default function SellerStoriesPage(){
  const router=useRouter();
@@ -45,6 +45,8 @@ export default function SellerStoriesPage(){
  const [error,setError]=useState("");
  const [message,setMessage]=useState("");
  const [recordingIndex,setRecordingIndex]=useState<number|null>(null);
+ const [previewOpen,setPreviewOpen]=useState(false);
+ const [previewPage,setPreviewPage]=useState(0);
  const recorderRef=useRef<MediaRecorder|null>(null);
  const streamRef=useRef<MediaStream|null>(null);
  const chunksRef=useRef<Blob[]>([]);
@@ -68,7 +70,7 @@ export default function SellerStoriesPage(){
   if(!story)return;
   setEditingStoryId(story.id);setTitle(story.name);setDescription(story.description??"");
   setCategory(String(story.metadata?.story_category??"budaya"));
-  setPages(story.pages.map(page=>({title:page.page_title??"",body:page.body,image:null,audio:null,imagePreview:page.illustration_url,audioPreview:page.audio_url,duration:page.audio_duration_seconds,imagePath:page.illustration_path,audioPath:page.audio_path})));
+  setPages(story.pages.map(page=>({title:page.page_title??"",body:page.body,imageUrl:page.illustration_url,imagePreview:page.illustration_url,audio:null,audioPreview:page.audio_url,duration:page.audio_duration_seconds,audioPath:page.audio_path})));
   setEditLoaded(editId);
  },[editId,editLoaded,stories]);
  useEffect(()=>()=>{if(recorderRef.current?.state==="recording")recorderRef.current.stop();streamRef.current?.getTracks().forEach(track=>track.stop());},[]);
@@ -81,10 +83,27 @@ export default function SellerStoriesPage(){
   if(pages.length===1)return;
   setPages(v=>v.filter((_,i)=>i!==index));
  }
- function chooseImage(index:number,file:File|null){
-  if(!file)return;
-  if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>15*1024*1024){setError("Ilustrasi harus JPG, PNG, atau WebP maksimal 15 MB.");return;}
-  const preview=URL.createObjectURL(file);setPage(index,{image:file,imagePreview:preview});setError("");
+ function normalizeImageUrl(value:string){
+  const trimmed=value.trim();
+  try{
+   const url=new URL(trimmed);
+   if(url.protocol!=="https:")return "";
+   if(url.hostname==="drive.google.com"){
+    const pathParts=url.pathname.split("/").filter(Boolean);
+    const id=url.searchParams.get("id")||(pathParts[0]==="file"&&pathParts[1]==="d"?pathParts[2]:"");
+    return id?"https://drive.google.com/thumbnail?id="+encodeURIComponent(id)+"&sz=w1200":trimmed;
+   }
+   if(url.hostname==="imgur.com"||url.hostname==="www.imgur.com"){
+    const id=url.pathname.split("/").filter(Boolean).pop()?.split(".")[0];
+    return id?"https://i.imgur.com/"+id+".jpg":trimmed;
+   }
+   return trimmed;
+  }catch{return "";}
+ }
+ function updateImageUrl(index:number,value:string){
+  const normalized=normalizeImageUrl(value);
+  setPage(index,{imageUrl:value,imagePreview:normalized});
+  setError("");
  }
  function chooseAudio(index:number,file:File|null){
   if(!file)return;
@@ -117,7 +136,7 @@ export default function SellerStoriesPage(){
  async function submit(event:FormEvent<HTMLFormElement>){
   event.preventDefault();setSaving(true);setError("");setMessage("");
   try{
-   if(pages.some(p=>!p.body.trim()||(!p.image&&!p.imagePath)||(!p.audio&&!p.audioPath)))throw new Error("Setiap halaman wajib memiliki teks, ilustrasi, dan rekaman audio. Lengkapi media yang belum tersedia.");
+   if(pages.some(p=>!p.body.trim()||!normalizeImageUrl(p.imageUrl)||(!p.audio&&!p.audioPath)))throw new Error("Setiap halaman wajib memiliki teks, URL ilustrasi HTTPS, dan rekaman audio. Lengkapi media yang belum tersedia.");
    let productId=editingStoryId??"";
    if(!productId){
     const createResponse=await fetch("/api/seller/stories",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title,description,category})});
@@ -130,10 +149,9 @@ export default function SellerStoriesPage(){
    try{
     const pagePayload=[];
     for(let i=0;i<pages.length;i++){
-     const p=pages[i];let imagePath=p.imagePath??"";let audioPath=p.audioPath??"";
-     if(p.image){const ext=p.image.type==="image/png"?"png":p.image.type==="image/webp"?"webp":"jpg";imagePath=user.id+"/"+productId+"/"+(i+1)+"-illustration-"+crypto.randomUUID()+"."+ext;const result=await supabase.storage.from("story-media").upload(imagePath,p.image,{contentType:p.image.type,upsert:false});if(result.error)throw new Error("Upload ilustrasi halaman "+(i+1)+" gagal: "+result.error.message);uploaded.push(imagePath);}
+     const p=pages[i];const imageUrl=normalizeImageUrl(p.imageUrl);let audioPath=p.audioPath??"";
      if(p.audio){const ext=p.audio.type==="audio/mpeg"?"mp3":p.audio.type==="audio/wav"?"wav":p.audio.type==="audio/aac"?"aac":p.audio.type==="audio/webm"?"webm":"m4a";audioPath=user.id+"/"+productId+"/"+(i+1)+"-narration-"+crypto.randomUUID()+"."+ext;const result=await supabase.storage.from("story-media").upload(audioPath,p.audio,{contentType:p.audio.type,upsert:false});if(result.error)throw new Error("Upload audio halaman "+(i+1)+" gagal: "+result.error.message);uploaded.push(audioPath);}
-     pagePayload.push({title:p.title,body:p.body,duration:p.duration,illustration_url:imagePath,audio_url:audioPath});
+     pagePayload.push({title:p.title,body:p.body,duration:p.duration,illustration_url:imageUrl,audio_url:audioPath});
     }
     const saveResponse=await fetch("/api/seller/stories",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({productId,category,description,pages:pagePayload})});
     const saved=await saveResponse.json();if(!saveResponse.ok)throw new Error(saved.error||"Halaman cerita gagal disimpan.");
@@ -168,15 +186,16 @@ export default function SellerStoriesPage(){
       <input value={page.title} onChange={e=>setPage(index,{title:e.target.value})} placeholder="Judul halaman (opsional)" className="mb-3 w-full rounded-lg border border-[#E5DDCF] px-3 py-2.5 text-xs outline-none focus:border-[#93372A]"/>
       <textarea required minLength={10} maxLength={5000} rows={4} value={page.body} onChange={e=>setPage(index,{body:e.target.value})} placeholder="Tulis isi cerita untuk halaman ini..." className="w-full rounded-lg border border-[#E5DDCF] px-3 py-3 text-xs leading-6 outline-none focus:border-[#93372A]"/>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-       <label className="cursor-pointer rounded-xl border border-dashed border-[#CDBB9F] bg-[#FBF7EE] p-3"><span className="flex items-center gap-2 text-xs font-bold text-[#79552F]"><FileImage size={16}/> Ilustrasi halaman</span><span className="mt-1 block text-[10px] text-[#8A7965]">JPG, PNG, WebP · Maks. 15 MB</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>chooseImage(index,e.target.files?.[0]??null)} className="mt-2 block w-full text-[10px] file:mr-2 file:rounded-full file:border-0 file:bg-[#EDE0C7] file:px-3 file:py-1.5 file:text-[10px] file:font-bold file:text-[#79552F]"/>{page.imagePreview&&<img src={page.imagePreview} alt="Preview ilustrasi" className="mt-3 h-28 w-full rounded-lg object-cover"/>}</label>
+       <div className="rounded-xl border border-dashed border-[#CDBB9F] bg-[#FBF7EE] p-3"><label className="flex items-center gap-2 text-xs font-bold text-[#79552F]"><FileImage size={16}/> URL ilustrasi halaman</label><p className="mt-1 text-[10px] text-[#8A7965]">Tempel tautan gambar HTTPS dari Imgur atau Google Drive.</p><input type="url" value={page.imageUrl} onChange={e=>updateImageUrl(index,e.target.value)} placeholder="https://i.imgur.com/contoh.jpg" className="mt-3 w-full rounded-lg border border-[#DED3C1] bg-white px-3 py-2.5 text-[10px] outline-none focus:border-[#93372A]"/>{page.imagePreview?<img src={page.imagePreview} alt="Preview ilustrasi" className="mt-3 h-32 w-full rounded-lg bg-white object-contain" onError={()=>setPage(index,{imagePreview:""})}/>:page.imageUrl&&<p className="mt-2 text-[10px] text-rose-700">Tautan belum dapat ditampilkan. Periksa akses dan format gambar.</p>}</div>
        <div className="rounded-xl border border-dashed border-[#CDBB9F] bg-[#FBF7EE] p-3"><span className="flex items-center gap-2 text-xs font-bold text-[#79552F]"><FileAudio size={16}/> Rekaman narasi</span><span className="mt-1 block text-[10px] text-[#8A7965]">Rekam langsung atau upload MP3, M4A, AAC, WAV, WebM · Maks. 15 MB</span><button type="button" onClick={()=>void toggleRecording(index)} disabled={recordingIndex!==null&&recordingIndex!==index} className={"mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold disabled:opacity-50 "+(recordingIndex===index?"bg-rose-600 text-white":"bg-[#431714] text-white")}>{recordingIndex===index?<><Square size={14}/> Hentikan rekaman</>:<><Mic size={14}/> Rekam suara langsung</>}</button><input type="file" accept="audio/mpeg,audio/mp4,audio/wav,audio/x-m4a,audio/aac,audio/webm" onChange={e=>chooseAudio(index,e.target.files?.[0]??null)} className="mt-3 block w-full text-[10px] file:mr-2 file:rounded-full file:border-0 file:bg-[#EDE0C7] file:px-3 file:py-1.5 file:text-[10px] file:font-bold file:text-[#79552F]"/>{page.audio&&<div className="mt-3 rounded-lg bg-white p-3"><p className="truncate text-[10px] font-semibold text-emerald-800">✓ Audio siap: {page.audio.name}{page.duration? " · "+page.duration+" detik":""}</p>{page.audioPreview&&<audio controls preload="metadata" src={page.audioPreview} className="mt-2 w-full"/>}<p className="mt-1 text-[10px] text-[#8A7965]">Dengarkan preview untuk memastikan suara dan isi narasi sudah benar.</p></div>}</div>
       </div>
      </section>)}</div>
      <button type="button" onClick={addPage} disabled={pages.length>=20} className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#BDA98C] px-4 py-2.5 text-xs font-bold text-[#79552F] disabled:opacity-40"><Plus size={15}/> Tambah halaman</button>
     </div>
     <div className="rounded-xl bg-[#F3EBDD] p-4 text-[11px] leading-5 text-[#765E48]">Jumlah halaman fleksibel: minimal 1 dan maksimal 20 halaman per cerita. Setiap halaman wajib memiliki teks, ilustrasi, dan audio. Dengarkan preview audio sebelum mengirim. Pastikan rekaman merupakan suara yang kamu miliki atau telah mendapat izin dari narator.</div>
-    <button disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#431714] px-5 py-3.5 text-xs font-bold text-white hover:bg-[#61251E] disabled:cursor-wait disabled:opacity-60">{saving?<><UploadCloud size={16}/> Mengunggah cerita...</>:<>{editingStoryId?"Simpan perubahan & kirim kurasi":"Kirim untuk kurasi admin"} <ArrowRight size={15}/></>}</button>
+    <div className="grid gap-2 sm:grid-cols-2"><button type="button" onClick={()=>{setPreviewPage(0);setPreviewOpen(true);}} className="inline-flex items-center justify-center gap-2 rounded-full border border-[#BDA98C] px-5 py-3.5 text-xs font-bold text-[#79552F]"><Eye size={15}/> Preview cerita</button><button disabled={saving} className="flex items-center justify-center gap-2 rounded-full bg-[#431714] px-5 py-3.5 text-xs font-bold text-white hover:bg-[#61251E] disabled:cursor-wait disabled:opacity-60">{saving?<><UploadCloud size={16}/> Mengunggah cerita...</>:<>{editingStoryId?"Simpan perubahan & kirim kurasi":"Kirim untuk kurasi admin"} <ArrowRight size={15}/></>}</button></div>
    </form>
+   {previewOpen&&<div className="fixed inset-0 z-[90] overflow-y-auto bg-black/60 p-3 sm:p-6" onClick={()=>setPreviewOpen(false)}><section role="dialog" aria-modal="true" aria-label="Preview cerita" onClick={e=>e.stopPropagation()} className="mx-auto my-4 max-w-3xl rounded-2xl bg-[#FDFAF3] p-4 shadow-2xl sm:p-7"><div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-bold tracking-[.16em] text-[#C79854]">PREVIEW CERITA</p><h2 className="mt-1 font-display text-2xl text-[#431714]">{title||"Judul cerita"}</h2><p className="mt-1 text-xs leading-5 text-[#7A6C5E]">{description||"Deskripsi cerita akan tampil di sini."}</p></div><button type="button" onClick={()=>setPreviewOpen(false)} className="rounded-full border border-[#DED3C1] px-3 py-2 text-xs font-bold text-[#79552F]">Tutup</button></div>{pages[previewPage]&&<article className="mt-5 overflow-hidden rounded-xl border border-[#DED3C1] bg-white"><div className="flex items-center justify-between p-3"><h3 className="text-xs font-bold text-[#431714]">Halaman {previewPage+1}{pages[previewPage].title?" · "+pages[previewPage].title:""}</h3><span className="text-[9px] text-[#8A7965]">{previewPage+1}/{pages.length}</span></div>{pages[previewPage].imagePreview?<img src={pages[previewPage].imagePreview} alt={pages[previewPage].title||"Ilustrasi cerita"} className="max-h-[420px] w-full bg-[#F7F1E3] object-contain"/>:<div className="p-10 text-center text-xs text-[#8A7965]">Preview ilustrasi akan muncul setelah URL gambar diisi.</div>}<div className="p-5 sm:p-7"><p className="whitespace-pre-line text-sm leading-8 text-[#574638]">{pages[previewPage].body||"Isi cerita akan tampil di sini."}</p>{pages[previewPage].audioPreview&&<div className="mt-5 rounded-xl bg-[#F3EBDD] p-3"><p className="mb-2 text-[10px] font-bold text-[#79552F]">Narasi audio</p><audio controls preload="metadata" src={pages[previewPage].audioPreview} className="w-full"/></div>}</div></article>}<div className="mt-4 flex items-center justify-between gap-3"><button type="button" disabled={previewPage===0} onClick={()=>setPreviewPage(v=>Math.max(0,v-1))} className="rounded-full border border-[#CDBB9F] px-4 py-2.5 text-[10px] font-bold text-[#79552F] disabled:opacity-30">Halaman sebelumnya</button><div className="flex gap-1.5">{pages.map((p,i)=><button key={i} type="button" onClick={()=>setPreviewPage(i)} aria-label={"Preview halaman "+(i+1)} className={"h-2 rounded-full "+(i===previewPage?"w-6 bg-[#93372A]":"w-2 bg-[#D6C7B2]")}/>)}</div><button type="button" disabled={previewPage>=pages.length-1} onClick={()=>setPreviewPage(v=>Math.min(pages.length-1,v+1))} className="rounded-full bg-[#431714] px-4 py-2.5 text-[10px] font-bold text-white disabled:opacity-30">Halaman berikutnya</button></div></section></div>}
    <aside className="space-y-5">
     <section className="rounded-2xl border border-[#DED3C1] bg-[#FDFAF3] p-5"><h2 className="font-display text-xl text-[#431714]">Alur publikasi</h2><div className="mt-4 space-y-4 text-xs text-[#756654]"><p className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F3EBDD] font-bold text-[#79552F]">1</span>Isi cerita, upload ilustrasi, lalu rekam narasi langsung atau upload audio.</p><p className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F3EBDD] font-bold text-[#79552F]">2</span>Kirim cerita atau pembaruan untuk diperiksa admin.</p><p className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F3EBDD] font-bold text-[#79552F]">3</span>Setelah disetujui, cerita tampil di katalog dan QR Code dapat dibagikan.</p></div></section>
     <section className="rounded-2xl border border-[#DED3C1] bg-[#FDFAF3] p-5"><div className="flex items-center justify-between"><h2 className="font-display text-xl text-[#431714]">Cerita saya</h2><button onClick={()=>void load()} className="text-[10px] font-bold text-[#93372A]">Muat ulang</button></div>
