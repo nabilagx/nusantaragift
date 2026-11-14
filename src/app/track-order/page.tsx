@@ -64,9 +64,9 @@ function getStatusInfo(status: OrderStatus, shippingQuoteStatus?: "pending" | "q
     const states: Record<string, {label:string;description:string}> = {
       paid: { label: "Menunggu konfirmasi UMKM", description: "Pembayaran berhasil. Mitra UMKM akan menerima dan menyiapkan pesanan." },
       processing: { label: "Pesanan sedang disiapkan", description: "Mitra UMKM sudah menerima pesanan dan sedang menyiapkan produk." },
-      shipped: { label: "Pesanan dalam pengiriman", description: "Pesanan sudah dikirim oleh mitra UMKM." },
-      delivered: { label: "Pesanan telah diterima", description: "Pesanan telah sampai di tujuan." },
-      completed: { label: "Pesanan selesai", description: "Terima kasih sudah berbelanja di NusantaraGift." },
+      shipped: { label: "Pesanan dalam pengiriman · simulasi", description: "Mitra UMKM telah membuat resi simulasi. Tidak ada pelacakan kurir eksternal." },
+      delivered: { label: "Pesanan telah diterima", description: "Status penerimaan ditampilkan sebagai simulasi." },
+      completed: { label: "Pesanan selesai · simulasi", description: "Alur pemenuhan pesanan telah ditutup oleh mitra UMKM." },
     };
     const current = states[orderStatus ?? "paid"] ?? states.paid;
     return { ...current, className: "bg-green-100 text-green-800", icon: CheckCircle2 };
@@ -103,8 +103,8 @@ function OrderProgress({ status, shippingQuoteStatus, orderStatus }: {
     { title:"Pesanan dibuat", description:"Pesanan berhasil dicatat.", level:0 },
     { title:shippingQuoteStatus === "quoted" ? "Pembayaran dikonfirmasi" : "Menunggu ongkos kirim", description:shippingQuoteStatus === "quoted" ? "Admin sudah menetapkan ongkir. Selesaikan pembayaran." : "Admin sedang menghitung ongkos kirim.", level:1 },
     { title:"Diproses UMKM", description:"Mitra menerima pesanan dan menyiapkan produk.", level:2 },
-    { title:"Dalam pengiriman", description:"Pesanan sudah diserahkan kepada kurir.", level:3 },
-    { title:"Pesanan diterima", description:"Pesanan sampai di alamat tujuan.", level:4 },
+    { title:"Dalam pengiriman", description:"Resi simulasi telah dibuat oleh mitra UMKM; tidak ada kurir eksternal.", level:3 },
+    { title:"Pesanan diterima", description:"Status penerimaan ditandai sebagai simulasi.", level:4 },
   ];
   return <div className="mt-5 rounded-xl bg-[#FAF6EF] p-4"><h3 className="mb-4 text-sm font-bold text-[#34291F]">Perjalanan pesanan</h3><div className="space-y-3">{steps.map((step,index)=>{const done=current>=step.level;const active=current===step.level;return <div key={step.title} className="flex gap-3"><div className="flex flex-col items-center"><div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${done?"bg-green-100 text-green-700":active?"bg-amber-100 text-amber-700":"bg-[#E9DFCE] text-[#9C897F]"}`}>{done?<CheckCircle2 size={16}/>:<Clock3 size={15}/>}</div>{index!==steps.length-1&&<div className="mt-1 h-5 w-px bg-[#D9C9AF]"/>}</div><div className="pb-1"><p className="text-sm font-semibold text-[#34291F]">{step.title}</p><p className="mt-0.5 text-xs text-[#8B7B6C]">{step.description}</p></div></div>;})}</div></div>;
 }
@@ -133,7 +133,7 @@ export default function TrackOrderPage() {
     }
   }
 
-  useEffect(() => { void loadOrders(); }, []);
+  useEffect(() => { const orderNumber = new URLSearchParams(window.location.search).get("order"); if (orderNumber) setSearch(orderNumber); void loadOrders(); }, []);
 
   const filteredOrders = useMemo(() => {
     const keyword = search.trim().toLowerCase();
