@@ -60,7 +60,25 @@ export default function ProductDetailPage({ id }: { id: string }) {
   useEffect(() => {
     let active = true;
     getCatalogProduct(id)
-      .then((item) => { if (active) setProduct(item); })
+      .then((item) => {
+        if (active) setProduct(item);
+        try {
+          const key = "nusantaragift-visited-products";
+          const stored = localStorage.getItem(key);
+          const parsed: unknown = stored ? JSON.parse(stored) : [];
+          const visits: { id: string; count: number; lastVisitedAt: number }[] = Array.isArray(parsed)
+            ? parsed.filter((entry): entry is { id: string; count: number; lastVisitedAt: number } =>
+                typeof entry?.id === "string" && typeof entry?.count === "number" && typeof entry?.lastVisitedAt === "number")
+            : [];
+          const existing = visits.find((entry) => entry.id === id);
+          const next = existing
+            ? visits.map((entry) => entry.id === id ? { ...entry, count: entry.count + 1, lastVisitedAt: Date.now() } : entry)
+            : [...visits, { id, count: 1, lastVisitedAt: Date.now() }];
+          localStorage.setItem(key, JSON.stringify(next.slice(-100)));
+        } catch (error) {
+          console.warn("Riwayat kunjungan produk tidak dapat disimpan:", error);
+        }
+      })
       .catch((error) => console.error("Gagal memuat detail produk:", error))
       .finally(() => { if (active) setLoadingProduct(false); });
     return () => { active = false; };
