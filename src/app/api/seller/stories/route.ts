@@ -20,7 +20,7 @@ export async function GET() {
   const auth = await sellerClient();
   if (auth.error || !auth.user) return auth.error ?? fail("Silakan login.", 401);
   const { data, error } = await auth.supabase.from("products")
-    .select("id,slug,name,description,status,moderation_note,created_at,metadata,story_pages(id,page_number,page_title,body,illustration_url,audio_url,audio_duration_seconds)")
+    .select("id,slug,name,description,price,stock,status,moderation_note,created_at,metadata,story_pages(id,page_number,page_title,body,illustration_url,audio_url,audio_duration_seconds)")
     .eq("seller_id", auth.user.id).eq("delivery_type", "digital-audio").order("created_at", { ascending: false });
   if (error) return fail("Gagal memuat cerita UMKM.", 500);
   const stories = await Promise.all((data ?? []).map(async (story) => {
@@ -40,8 +40,20 @@ export async function POST(request: Request) {
   if (auth.error || !auth.user) return auth.error ?? fail("Silakan login.", 401);
   const body = await request.json().catch(() => ({}));
   const title = typeof body.title === "string" ? body.title.trim() : "";
+  const price = Number(body.price);
+  const stock = Number(body.stock);
+  const coverUrl = typeof body.coverUrl === "string" ? body.coverUrl.trim() : "";
+  let cover: URL;
+  try { cover = new URL(coverUrl); } catch { return fail("Masukkan URL cover yang valid."); }
+  if (!Number.isSafeInteger(price) || price < 1000 || price > 100000000 || !Number.isSafeInteger(stock) || stock < 1 || stock > 10000 || cover.protocol !== "https:" || cover.username || cover.password) return fail("Harga, stok, atau URL cover tidak valid.");
   const description = typeof body.description === "string" ? body.description.trim() : "";
   const category = typeof body.category === "string" ? body.category : "";
+  const price = Number(body.price);
+  const stock = Number(body.stock);
+  const coverUrl = typeof body.coverUrl === "string" ? body.coverUrl.trim() : "";
+  let cover: URL;
+  try { cover = new URL(coverUrl); } catch { return fail("Masukkan URL cover yang valid."); }
+  if (!Number.isSafeInteger(price) || price < 1000 || price > 100000000 || !Number.isSafeInteger(stock) || stock < 1 || stock > 10000 || cover.protocol !== "https:" || cover.username || cover.password) return fail("Harga, stok, atau URL cover tidak valid.");
   if (title.length < 3 || title.length > 120 || description.length < 20 || description.length > 2000) return fail("Judul harus 3–120 karakter dan deskripsi 20–2.000 karakter.");
   if (!["budaya", "dongeng", "inspirasi", "sejarah", "edukasi"].includes(category)) return fail("Kategori cerita tidak valid.");
   const { data: categoryRow } = await auth.supabase.from("categories").select("id").eq("slug", "cerita").maybeSingle();
@@ -49,9 +61,9 @@ export async function POST(request: Request) {
   const slug = slugify(title) + "-" + crypto.randomUUID().slice(0, 8);
   const { data, error } = await auth.supabase.from("products").insert({
     seller_id: auth.user.id, category_id: categoryRow.id, name: title, slug, description,
-    price: 0, stock: 0, sku: "STORY-" + crypto.randomUUID().slice(0, 8).toUpperCase(),
+    price, stock, sku: "STORY-" + crypto.randomUUID().slice(0, 8).toUpperCase(),
     is_gift_card_enabled: false, status: "draft", delivery_type: "digital-audio",
-    metadata: { story_category: category, region: "Indonesia", image: "", imageAlt: title, size: "0 halaman", summary: { type: "Cerita digital", format: "Buku cerita audio", unlock: "Gratis" } },
+    metadata: { story_category: category, region: "Indonesia", image: coverUrl, imageAlt: title, size: "0 halaman", summary: { type: "Cerita digital", format: "Buku cerita audio", unlock: "Berbayar" } },
   }).select("id,slug").single();
   if (error || !data) {
     console.error("Create story draft:", error);
@@ -98,8 +110,8 @@ export async function PUT(request: Request) {
   const { error: trimError } = await auth.supabase.from("story_pages").delete().eq("product_id", productId).gt("page_number", rows.length);
   if (trimError) return fail("Halaman cerita lama gagal diselaraskan.", 500);
   const { error: updateError } = await auth.supabase.from("products").update({
-    status: "pending_review", description: typeof body.description === "string" ? body.description.trim() : undefined, updated_at: new Date().toISOString(),
-    metadata: { story_category: body.category, region: "Indonesia", image: "", imageAlt: "Cerita Nusantara", size: rows.length + " halaman", summary: { type: "Cerita digital", format: "Buku cerita audio", unlock: "Gratis" } },
+    status: "pending_review", price, stock, description: typeof body.description === "string" ? body.description.trim() : undefined, updated_at: new Date().toISOString(),
+    metadata: { story_category: body.category, region: "Indonesia", image: coverUrl, imageAlt: "Cover cerita Nusantara", size: rows.length + " halaman", summary: { type: "Cerita digital", format: "Buku cerita audio", unlock: "Berbayar" } },
   }).eq("id", productId).eq("seller_id", auth.user.id);
   if (updateError) return fail("Cerita belum berhasil dikirim ke antrean admin.", 500);
   return NextResponse.json({ success: true, message: "Cerita berhasil dikirim untuk ditinjau admin." });
