@@ -43,6 +43,7 @@ const mobileNav: DashboardNavItem[] = [
   { label: "Beranda", href: "/admin/dashboard", icon: "overview" },
   { label: "UMKM", href: "/admin/umkm", icon: "verification" },
   { label: "Kurasi", href: "/admin/products", icon: "curation" },
+  { label: "Pesanan", href: "/admin/orders", icon: "orders" },
   { label: "Iklan", href: "/admin/ads", icon: "ads" },
   { label: "Akun", href: "/admin/settings", icon: "settings" },
 ];
