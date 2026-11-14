@@ -18,7 +18,7 @@ export default function FeaturedProducts({
   const query = searchQuery.trim().toLocaleLowerCase("id");
   const filteredProducts = products.filter((product) => {
     const matchesCategory = product.category === category;
-    const matchesSearch = `${product.title} ${product.description}`.toLocaleLowerCase("id").includes(query);
+    const matchesSearch = `${product.title} ${product.description} ${product.region} ${product.detailDescription} ${product.summary.type} ${product.summary.format}`.toLocaleLowerCase("id").includes(query);
     return matchesCategory && matchesSearch;
   });
   const sectionTitle = category === "Cerita" ? "Semua Kado" : `Kado ${category}`;

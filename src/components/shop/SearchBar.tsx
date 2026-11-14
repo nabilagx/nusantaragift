@@ -13,9 +13,10 @@ export default function SearchBar({ value, onChange }: SearchBarProps) {
         <path d="m16 16 4.2 4.2" strokeLinecap="round" />
       </svg>
       <input
+        aria-label="Cari produk"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="Cari Kado, Komunitas ...."
+        placeholder="Cari produk, daerah, atau cerita..."
         className="w-full bg-transparent text-sm text-[#302820] outline-none placeholder:text-[#A99A88] sm:text-base"
       />
     </label>
