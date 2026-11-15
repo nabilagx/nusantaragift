@@ -3,6 +3,7 @@ import DigitalGiftExperience from "./ExperienceClient";
 
 // The recipient token is request-specific and must not be statically prerendered.
 // Dynamic route params keep each recipient token request-specific.
+export const instant = false;
 
 export default async function ExperiencePage({
   params,
