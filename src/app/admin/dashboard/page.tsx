@@ -12,7 +12,7 @@ import DashboardShell, { type DashboardNavItem } from "@/components/dashboard/Da
 
 type Product = {
   id: string; name: string; description: string | null; price: number; stock: number;
-  seller_name: string; category_name: string; created_at: string; status: string; sales_count?: number; metadata?: Record<string, unknown>;
+  seller_name: string; category_name: string; created_at: string; status: string; sales_count?: number; metadata?: Record<string, unknown>; moderation_note?: string | null;
 };
 type AdminNotice = { id: string; title: string; message: string; type: string; created_at: string };
 type Order = {
