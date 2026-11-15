@@ -22,14 +22,18 @@ export async function GET(_request: Request, context: Context) {
   const verifiedEmail = Boolean(user.email_confirmed_at);
   const normalizedUserEmail = String(user.email ?? "").trim().toLowerCase();
   const normalizedRecipientEmail = String(access.recipient_email ?? "").trim().toLowerCase();
-  const { data: recipientProfile, error: profileError } = await admin.from("profiles")
+
+  // Read the signed-in user's own profile through the authenticated SSR client.
+  // The profiles table intentionally grants authenticated users SELECT only
+  // for their own row (auth.uid() = id); this avoids relying on service-role
+  // credentials for a lookup that is already covered by the user's RLS policy.
+  const { data: recipientProfile, error: profileError } = await supabase.from("profiles")
     .select("role_id").eq("id", user.id).maybeSingle();
 
-  // A database/profile lookup failure is an internal error, not proof that the
-  // visitor is the wrong recipient. Keep diagnostics free of personal data.
   if (profileError) {
     console.error("[experience] recipient profile lookup failed", {
       code: profileError.code ?? "unknown",
+      message: profileError.message,
       hasUser: true,
       hasVerifiedEmail: verifiedEmail,
     });
