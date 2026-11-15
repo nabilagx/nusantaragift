@@ -119,7 +119,7 @@ export default function BottomNavigation() {
           <span
             className="
               pointer-events-none absolute bottom-[9px] left-0
-              h-[3px] w-1/4
+              h-[3px] w-1/5
               transition-transform duration-500
               ease-[cubic-bezier(0.22,1,0.36,1)]
             "
