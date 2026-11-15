@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import DigitalGiftExperience from "./ExperienceClient";
 
 // The recipient token is request-specific and must not be statically prerendered.
-export const instant = false;
+export const dynamic = "force-dynamic";
 
 export default async function ExperiencePage({
   params,
