@@ -14,5 +14,6 @@ export async function GET() {
     .select("id,product_id,action,reason,previous_status,new_status,created_at,products(name,slug)")
     .order("created_at", { ascending: false }).limit(100);
   if (error) return NextResponse.json({ error: "Histori moderasi gagal dimuat." }, { status: 500 });
-  return NextResponse.json({ events: data ?? [] });
+  const events = (data ?? []).map((event) => ({ ...event, product_name: Array.isArray(event.products) ? event.products[0]?.name ?? "Produk" : event.products?.name ?? "Produk" }));
+  return NextResponse.json({ events });
 }
