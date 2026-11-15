@@ -17,16 +17,11 @@ export async function GET(_request: Request, context: Context) {
     .select("order_id,recipient_user_id,recipient_email,expires_at")
     .eq("access_token", token).maybeSingle();
   if (accessError || !access) return NextResponse.json({ error: "QR Gift Card tidak ditemukan." }, { status: 404 });
-  // Email entered at checkout is the recipient identity. The verified email
-  // must match it; a stale recipient_user_id must not block a valid recipient.
+
   const verifiedEmail = Boolean(user.email_confirmed_at);
   const normalizedUserEmail = String(user.email ?? "").trim().toLowerCase();
   const normalizedRecipientEmail = String(access.recipient_email ?? "").trim().toLowerCase();
 
-  // Read the signed-in user's own profile through the authenticated SSR client.
-  // The profiles table intentionally grants authenticated users SELECT only
-  // for their own row (auth.uid() = id); this avoids relying on service-role
-  // credentials for a lookup that is already covered by the user's RLS policy.
   const { data: recipientProfile, error: profileError } = await supabase.from("profiles")
     .select("role_id").eq("id", user.id).maybeSingle();
 
@@ -68,18 +63,78 @@ export async function GET(_request: Request, context: Context) {
   const { data: items, error: itemsError } = await admin.from("order_items")
     .select("product_id,product_name").eq("order_id", access.order_id);
   if (itemsError || !items?.length) return NextResponse.json({ error: "Cerita dalam pesanan tidak ditemukan." }, { status: 404 });
-  const productIds = items.map(item => item.product_id).filter((id): id is string => Boolean(id));
+
+  const productIds = [...new Set(items.map(item => item.product_id).filter((id): id is string => Boolean(id)))];
+  if (!productIds.length) return NextResponse.json({ error: "Produk cerita dalam pesanan tidak ditemukan." }, { status: 404 });
+
+  // Query products and story pages separately. This avoids relying on a nested
+  // PostgREST relationship embed, which can fail when its schema cache is stale.
   const { data: products, error: productsError } = await admin.from("products")
-    .select("id,slug,name,description,story_pages(id,page_number,page_title,body,illustration_url,audio_url,audio_duration_seconds)")
-    .in("id", productIds).eq("delivery_type", "digital-audio");
-  if (productsError || !products?.length) return NextResponse.json({ error: "Konten cerita belum tersedia." }, { status: 404 });
+    .select("id,slug,name,description")
+    .in("id", productIds)
+    .eq("delivery_type", "digital-audio");
+
+  if (productsError) {
+    console.error("[experience] product lookup failed", {
+      code: productsError.code ?? "unknown",
+      message: productsError.message,
+      productCount: productIds.length,
+    });
+    return NextResponse.json({ error: "Gagal memuat produk cerita. Silakan coba lagi nanti." }, { status: 500 });
+  }
+  if (!products?.length) {
+    console.warn("[experience] no digital story products matched order", {
+      productCount: productIds.length,
+    });
+    return NextResponse.json({ error: "Produk cerita pada pesanan tidak tersedia." }, { status: 404 });
+  }
+
+  const matchedProductIds = products.map(product => product.id);
+  const { data: storyPages, error: storyPagesError } = await admin.from("story_pages")
+    .select("id,product_id,page_number,page_title,body,illustration_url,audio_url,audio_duration_seconds")
+    .in("product_id", matchedProductIds)
+    .order("page_number", { ascending: true });
+
+  if (storyPagesError) {
+    console.error("[experience] story pages lookup failed", {
+      code: storyPagesError.code ?? "unknown",
+      message: storyPagesError.message,
+      productCount: matchedProductIds.length,
+    });
+    return NextResponse.json({ error: "Gagal memuat halaman cerita. Silakan coba lagi nanti." }, { status: 500 });
+  }
+  if (!storyPages?.length) {
+    console.warn("[experience] no story pages found for matched products", {
+      productCount: matchedProductIds.length,
+    });
+    return NextResponse.json({ error: "Konten cerita belum tersedia." }, { status: 404 });
+  }
 
   const stories = await Promise.all(products.map(async product => {
-    const pages = await Promise.all((product.story_pages ?? []).sort((a,b)=>a.page_number-b.page_number).map(async page => {
-      const audio = await admin.storage.from("story-media").createSignedUrl(page.audio_url, 3600);
-      return { id: page.id, pageNumber: page.page_number, title: page.page_title, body: page.body, imageUrl: page.illustration_url, audioUrl: audio.data?.signedUrl ?? "", duration: page.audio_duration_seconds };
-    }));
+    const pages = await Promise.all(storyPages
+      .filter(page => page.product_id === product.id)
+      .map(async page => {
+        const audio = page.audio_url
+          ? await admin.storage.from("story-media").createSignedUrl(page.audio_url, 3600)
+          : null;
+        return {
+          id: page.id,
+          pageNumber: page.page_number,
+          title: page.page_title,
+          body: page.body,
+          imageUrl: page.illustration_url,
+          audioUrl: audio?.data?.signedUrl ?? "",
+          duration: page.audio_duration_seconds,
+        };
+      }));
     return { slug: product.slug, title: product.name, description: product.description ?? "", pages };
   }));
-  return NextResponse.json({ orderNumber: order.order_number, expiresAt: access.expires_at, giftCardDesign: order.gift_card_design, recipientName: order.recipient_name, stories });
+
+  return NextResponse.json({
+    orderNumber: order.order_number,
+    expiresAt: access.expires_at,
+    giftCardDesign: order.gift_card_design,
+    recipientName: order.recipient_name,
+    stories,
+  });
 }
