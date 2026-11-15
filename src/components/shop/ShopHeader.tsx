@@ -17,7 +17,28 @@ const iconMap = {
 };
 
 export default function Header() {
-  const [unreadCount, setUnreadCount] = useState(0);\n  const [loggingOut, setLoggingOut] = useState(false);\n\n  async function logout() {\n    if (loggingOut) return;\n    setLoggingOut(true);\n    try {\n      const supabase = createClient();\n      const { error } = await supabase.auth.signOut({ scope: "global" });\n      if (error) throw error;\n      try { localStorage.removeItem("nusantragift-cart"); localStorage.removeItem("nusantaragift-wishlist"); } catch {}\n      window.location.replace("/login?loggedOut=1");\n    } catch (error) {\n      console.error("Gagal mengakhiri sesi Customer:", error);\n      setLoggingOut(false);\n    }\n  }
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function logout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signOut({ scope: "global" });
+      if (error) throw error;
+      try {
+        localStorage.removeItem("nusantragift-cart");
+        localStorage.removeItem("nusantaragift-wishlist");
+      } catch {
+        // Browser storage may be unavailable; auth has already been revoked.
+      }
+      window.location.replace("/login?loggedOut=1");
+    } catch (error) {
+      console.error("Gagal mengakhiri sesi Customer:", error);
+      setLoggingOut(false);
+    }
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -182,6 +203,9 @@ export default function Header() {
             </Link>
           );
         })}
+        <button type="button" onClick={()=>void logout()} disabled={loggingOut} aria-label="Keluar akun" title="Keluar akun" className="inline-flex h-9 items-center gap-2 rounded-full border border-[#93372A]/30 px-3 text-xs font-semibold text-[#93372A] transition hover:bg-[#93372A] hover:text-white disabled:opacity-50">
+          <LogOut size={17}/><span className="hidden sm:inline">{loggingOut ? "Keluar..." : "Keluar"}</span>
+        </button>
       </nav>
     </header>
   );
