@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, BookOpen, Clock3, Headphones, LockKeyhole, LoaderCircle,
-  Pause, Play, SkipBack, SkipForward, Volume2,
+  Pause, Play, SkipBack, SkipForward, Volume2, X, ZoomIn,
 } from "lucide-react";
 import ShopLayout from "@/components/shop/ShopLayout";
 
@@ -22,9 +22,7 @@ type Gift = { orderNumber: string; expiresAt: string; recipientName: string; sto
 
 function timeLabel(seconds: number) {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
-  const minutes = Math.floor(seconds / 60);
-  const remainder = Math.floor(seconds % 60).toString().padStart(2, "0");
-  return minutes + ":" + remainder;
+  return Math.floor(seconds / 60) + ":" + Math.floor(seconds % 60).toString().padStart(2, "0");
 }
 
 export default function DigitalGiftExperience({ token }: { token: string }) {
@@ -36,6 +34,7 @@ export default function DigitalGiftExperience({ token }: { token: string }) {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
+  const [zoomOpen, setZoomOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -56,6 +55,17 @@ export default function DigitalGiftExperience({ token }: { token: string }) {
     return () => { active = false; };
   }, [token]);
 
+  useEffect(() => {
+    if (!zoomOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setZoomOpen(false); };
+    window.addEventListener("keydown", onKeyDown);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [zoomOpen]);
+
   const story = gift?.stories[storyIndex];
   const page = story?.pages[pageIndex];
 
@@ -63,12 +73,8 @@ export default function DigitalGiftExperience({ token }: { token: string }) {
     const audio = audioRef.current;
     if (!audio || !page?.audioUrl) return;
     if (audio.paused) {
-      try {
-        await audio.play();
-        setPlaying(true);
-      } catch {
-        setError("Audio belum dapat diputar. Coba tekan tombol putar sekali lagi.");
-      }
+      try { await audio.play(); setPlaying(true); }
+      catch { setError("Audio belum dapat diputar. Coba tekan tombol putar sekali lagi."); }
     } else {
       audio.pause();
       setPlaying(false);
@@ -89,88 +95,99 @@ export default function DigitalGiftExperience({ token }: { token: string }) {
     setPageIndex(Math.max(0, Math.min(story.pages.length - 1, next)));
   }
 
-  if (loading) {
-    return <ShopLayout><div className="flex min-h-[60vh] items-center justify-center gap-3 text-sm text-[#79552F]"><LoaderCircle className="animate-spin" />Memverifikasi QR Gift Card...</div></ShopLayout>;
+  function changeStory(index: number) {
+    resetAudio();
+    setStoryIndex(index);
+    setPageIndex(0);
   }
 
-  if (error || !gift || !story || !page) {
-    return <ShopLayout><div className="mx-auto max-w-lg px-5 py-24 text-center">
-      <LockKeyhole size={42} className="mx-auto text-[#93372A]" />
-      <h1 className="mt-4 font-display text-2xl text-[#431714]">Cerita belum dapat dibuka</h1>
-      <p className="mt-3 text-sm leading-6 text-[#806A4E]">{error || "Konten cerita belum tersedia untuk Gift Card ini."}</p>
-      <Link href="/shop" className="mt-6 inline-flex rounded-full border border-[#CDBB9F] px-6 py-3 text-sm font-bold text-[#79552F]">Kembali ke NusantaraGift</Link>
-    </div></ShopLayout>;
-  }
+  if (loading) return <ShopLayout><div className="flex min-h-[60vh] items-center justify-center gap-3 text-sm text-[#79552F]"><LoaderCircle className="animate-spin" />Memverifikasi QR Gift Card...</div></ShopLayout>;
+
+  if (error || !gift || !story || !page) return <ShopLayout><div className="mx-auto max-w-lg px-5 py-24 text-center">
+    <LockKeyhole size={42} className="mx-auto text-[#93372A]" />
+    <h1 className="mt-4 font-display text-2xl text-[#431714]">Cerita belum dapat dibuka</h1>
+    <p className="mt-3 text-sm leading-6 text-[#806A4E]">{error || "Konten cerita belum tersedia untuk Gift Card ini."}</p>
+    <Link href="/shop" className="mt-6 inline-flex rounded-full border border-[#CDBB9F] px-6 py-3 text-sm font-bold text-[#79552F]">Kembali ke NusantaraGift</Link>
+  </div></ShopLayout>;
 
   const totalDuration = audioDuration || page.duration || 0;
   const progress = totalDuration > 0 ? Math.min(100, (currentTime / totalDuration) * 100) : 0;
 
   return <ShopLayout>
-    <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-9">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <main className="mx-auto max-w-4xl px-0 pb-8 pt-4 sm:px-4 sm:pt-8">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 px-1">
         <Link href="/shop" className="inline-flex items-center gap-2 text-xs font-semibold text-[#79552F]"><ArrowLeft size={15} /> NusantaraGift</Link>
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#F7F1E3] px-3 py-2 text-[10px] font-bold text-[#79552F]"><Clock3 size={13} /> Akses sampai {new Date(gift.expiresAt).toLocaleString("id-ID")}</span>
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#F1E7D6] px-3 py-2 text-[10px] font-semibold text-[#79552F]"><Clock3 size={13} /> Akses sampai {new Date(gift.expiresAt).toLocaleDateString("id-ID")}</span>
       </div>
 
-      <header className="overflow-hidden rounded-[28px] bg-[#431714] text-[#F7F1E3] shadow-lg">
-        <div className="px-6 py-7 text-center sm:px-10 sm:py-9">
+      <header className="overflow-hidden rounded-[22px] bg-[#431714] text-[#F7F1E3] shadow-md sm:rounded-[28px]">
+        <div className="px-5 py-7 text-center sm:px-10 sm:py-9">
           <p className="text-[9px] font-bold tracking-[.25em] text-[#D9B979]">NUSANTARA GIFT · CERITA DIGITAL</p>
-          <h1 className="mt-3 font-display text-3xl sm:text-4xl">Sebuah cerita untukmu, {gift.recipientName}</h1>
-          <p className="mt-3 text-xs text-white/70">Pesanan {gift.orderNumber} · Cerita pribadi yang dikirim khusus untukmu</p>
+          <h1 className="mt-3 font-display text-2xl leading-tight sm:text-4xl">Sebuah cerita untukmu, {gift.recipientName}</h1>
+          <p className="mt-3 text-[11px] text-white/70 sm:text-xs">Pesanan {gift.orderNumber} · Cerita pribadi yang dikirim khusus untukmu</p>
         </div>
         {gift.stories.length > 1 && <div className="flex flex-wrap justify-center gap-2 border-t border-white/10 px-4 pb-5">
-          {gift.stories.map((item, index) => <button key={item.slug} onClick={() => { resetAudio(); setStoryIndex(index); setPageIndex(0); }} className={"rounded-full px-4 py-2 text-xs font-bold transition " + (index === storyIndex ? "bg-[#D9B979] text-[#431714]" : "bg-white/10 text-white hover:bg-white/20")}>{item.title}</button>)}
+          {gift.stories.map((item, index) => <button key={item.slug} onClick={() => changeStory(index)} className={"rounded-full px-4 py-2 text-xs font-bold transition " + (index === storyIndex ? "bg-[#D9B979] text-[#431714]" : "bg-white/10 text-white hover:bg-white/20")}>{item.title}</button>)}
         </div>}
       </header>
 
-      <section className="mt-6 grid overflow-hidden rounded-[28px] border border-[#DED3C1] bg-[#FDFAF3] shadow-sm lg:grid-cols-[1.02fr_.98fr]">
-        <div className="relative min-h-[280px] bg-[#EDE0C7] sm:min-h-[420px]">
-          {page.imageUrl ? <img src={page.imageUrl} alt={page.title || story.title} className="absolute inset-0 h-full w-full object-cover" /> : <div className="flex h-full min-h-[280px] items-center justify-center text-[#9B815B]"><BookOpen size={54} strokeWidth={1.2} /></div>}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#241613]/65 to-transparent p-5 pt-16 text-white">
-            <p className="text-[9px] font-bold tracking-[.2em] text-[#F0D9A5]">BAGIAN {page.pageNumber}</p>
-            <p className="mt-1 font-display text-2xl">{page.title || story.title}</p>
+      <section className="book-page-enter relative mx-auto mt-5 overflow-hidden rounded-[8px] border border-[#D8C7A9] bg-[#FFFCF5] shadow-[0_12px_36px_rgba(67,23,20,0.12)] sm:mt-7 sm:rounded-[12px]" key={story.slug + "-" + page.id}>
+        <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-5 bg-gradient-to-r from-[#D7C5A5]/40 to-transparent sm:block" />
+        <div className="px-4 pb-7 pt-6 sm:px-12 sm:pb-10 sm:pt-10">
+          <div className="mb-5 flex items-center justify-between gap-3 border-b border-[#E9DDC9] pb-3">
+            <span className="text-[9px] font-bold tracking-[.2em] text-[#B38A4D]">NUSANTARA GIFT · {story.title.toUpperCase()}</span>
+            <span className="shrink-0 text-[10px] tabular-nums text-[#927B5D]">{pageIndex + 1} / {story.pages.length}</span>
           </div>
-        </div>
 
-        <div className="flex flex-col p-5 sm:p-8 lg:p-9">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[9px] font-bold tracking-[.18em] text-[#C79854]">DENGARKAN & BACA</p>
-            <span className="rounded-full bg-[#F3EBDD] px-3 py-1.5 text-[10px] font-bold text-[#79552F]">{pageIndex + 1} / {story.pages.length}</span>
-          </div>
-          {page.title && <h2 className="mt-4 font-display text-2xl text-[#431714] sm:text-3xl">{page.title}</h2>}
-          <article className="mt-4 whitespace-pre-line text-sm leading-8 text-[#574638] sm:text-[15px]">{page.body}</article>
+          {page.title && <h2 className="mb-5 text-center font-display text-2xl leading-snug text-[#431714] sm:mb-7 sm:text-3xl">{page.title}</h2>}
 
-          <div className="mt-auto pt-8">
-            <div className="rounded-[22px] bg-[#F3EBDD] p-4 sm:p-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#93372A] text-white"><Headphones size={19} /></div>
-                <div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#431714]">Audio cerita</p><p className="mt-0.5 truncate text-[10px] text-[#806A4E]">{story.title} · Bagian {page.pageNumber}</p></div>
-                <Volume2 size={17} className="text-[#79552F]" />
-              </div>
-              <audio ref={audioRef} src={page.audioUrl || undefined} preload="metadata" className="hidden"
-                onTimeUpdate={event => setCurrentTime(event.currentTarget.currentTime)}
-                onLoadedMetadata={event => setAudioDuration(event.currentTarget.duration || 0)}
-                onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
-                onEnded={() => setPlaying(false)} />
-              <input aria-label="Posisi audio" type="range" min={0} max={totalDuration || 1} step={0.1} value={Math.min(currentTime, totalDuration || 0)} onChange={event => { const value = Number(event.target.value); if (audioRef.current) audioRef.current.currentTime = value; setCurrentTime(value); }} className="mt-5 h-1.5 w-full cursor-pointer accent-[#93372A]" style={{ background: "linear-gradient(to right, #93372A " + progress + "%, #D8C8AE " + progress + "%)" }} />
-              <div className="mt-1 flex justify-between text-[10px] tabular-nums text-[#806A4E]"><span>{timeLabel(currentTime)}</span><span>{timeLabel(totalDuration)}</span></div>
-              <div className="mt-3 flex items-center justify-center gap-7">
-                <button type="button" onClick={() => { if (audioRef.current) audioRef.current.currentTime = 0; setCurrentTime(0); }} aria-label="Ulangi audio" className="rounded-full p-2 text-[#79552F] hover:bg-white/70"><SkipBack size={19} /></button>
-                <button type="button" onClick={togglePlayback} disabled={!page.audioUrl} aria-label={playing ? "Jeda audio" : "Putar audio"} className="flex h-14 w-14 items-center justify-center rounded-full bg-[#93372A] text-white shadow-md transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40">{playing ? <Pause size={23} fill="currentColor" /> : <Play size={23} fill="currentColor" className="ml-1" />}</button>
-                <button type="button" onClick={() => changePage(pageIndex + 1)} disabled={pageIndex >= story.pages.length - 1} aria-label="Bagian berikutnya" className="rounded-full p-2 text-[#79552F] hover:bg-white/70 disabled:opacity-30"><SkipForward size={19} /></button>
-              </div>
-              {!page.audioUrl && <p className="mt-3 text-center text-[10px] text-[#93372A]">Audio untuk bagian ini belum tersedia.</p>}
-            </div>
-            <div className="mt-6 flex items-center justify-between border-t border-[#E7DDCC] pt-5">
-              <button type="button" disabled={pageIndex === 0} onClick={() => changePage(pageIndex - 1)} className="rounded-full border border-[#CDBB9F] px-4 py-2.5 text-xs font-bold text-[#79552F] disabled:opacity-30">Sebelumnya</button>
-              <span className="text-[10px] text-[#8A7965]">Bagian {pageIndex + 1} dari {story.pages.length}</span>
-              <button type="button" disabled={pageIndex === story.pages.length - 1} onClick={() => changePage(pageIndex + 1)} className="rounded-full bg-[#431714] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-30">Berikutnya</button>
-            </div>
+          {page.imageUrl ? <button type="button" onClick={() => setZoomOpen(true)} aria-label="Perbesar ilustrasi cerita" className="group relative mx-auto mb-6 block w-full max-w-2xl overflow-hidden rounded-md bg-[#F0E6D5] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93372A]">
+            <img src={page.imageUrl} alt={page.title || story.title} className="mx-auto block max-h-[62vh] w-full object-contain sm:max-h-[680px]" />
+            <span className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-[#431714]/85 px-3 py-2 text-[10px] font-semibold text-white opacity-100 sm:opacity-0 sm:transition group-hover:opacity-100"><ZoomIn size={14} /> Perbesar gambar</span>
+          </button> : <div className="mb-6 flex min-h-48 items-center justify-center rounded-md bg-[#F0E6D5] text-[#A58A64]"><BookOpen size={48} strokeWidth={1.2} /></div>}
+
+          <article className="mx-auto max-w-[660px] whitespace-pre-line text-[14px] leading-[2] text-[#574638] sm:text-[16px] sm:leading-[2.05]">{page.body}</article>
+
+          <div className="mt-8 flex items-center justify-between border-t border-[#E9DDC9] pt-4 text-[9px] font-medium tracking-[.12em] text-[#A18A6A]">
+            <span>NUSANTARAGIFT</span><span>HALAMAN {page.pageNumber}</span>
           </div>
         </div>
       </section>
 
-      <p className="mt-5 text-center text-[10px] leading-5 text-[#8A7965]"><BookOpen className="mr-1 inline" size={13} /> Cerita ini tersedia untuk email penerima yang terverifikasi selama masa akses Gift Card.</p>
+      <section className="mt-5 rounded-[18px] border border-[#E3D6C2] bg-[#FFFCF7] p-4 shadow-sm sm:mt-6 sm:rounded-[22px] sm:p-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#93372A] text-white"><Headphones size={20} /></div>
+          <div className="min-w-0 flex-1"><p className="text-sm font-bold text-[#431714]">Dengarkan cerita</p><p className="mt-0.5 truncate text-[11px] text-[#806A4E]">{story.title} · Halaman {page.pageNumber}</p></div>
+          <Volume2 size={18} className="shrink-0 text-[#79552F]" />
+        </div>
+        <audio ref={audioRef} src={page.audioUrl || undefined} preload="metadata" className="hidden"
+          onTimeUpdate={event => setCurrentTime(event.currentTarget.currentTime)}
+          onLoadedMetadata={event => setAudioDuration(event.currentTarget.duration || 0)}
+          onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
+          onEnded={() => setPlaying(false)} />
+        <input aria-label="Posisi audio" type="range" min={0} max={totalDuration || 1} step={0.1} value={Math.min(currentTime, totalDuration || 0)} onChange={event => { const value = Number(event.target.value); if (audioRef.current) audioRef.current.currentTime = value; setCurrentTime(value); }} className="mt-5 h-2 w-full cursor-pointer accent-[#93372A]" style={{ background: "linear-gradient(to right, #93372A " + progress + "%, #D8C8AE " + progress + "%)" }} />
+        <div className="mt-1 flex justify-between text-[10px] tabular-nums text-[#806A4E]"><span>{timeLabel(currentTime)}</span><span>{timeLabel(totalDuration)}</span></div>
+        <div className="mt-4 flex items-center justify-center gap-8">
+          <button type="button" onClick={() => { if (audioRef.current) audioRef.current.currentTime = 0; setCurrentTime(0); }} aria-label="Ulangi audio" className="rounded-full p-2 text-[#79552F] hover:bg-[#F3EBDD]"><SkipBack size={20} /></button>
+          <button type="button" onClick={togglePlayback} disabled={!page.audioUrl} aria-label={playing ? "Jeda audio" : "Putar audio"} className="flex h-14 w-14 items-center justify-center rounded-full bg-[#93372A] text-white shadow-md transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40">{playing ? <Pause size={23} fill="currentColor" /> : <Play size={23} fill="currentColor" className="ml-1" />}</button>
+          <button type="button" onClick={() => changePage(pageIndex + 1)} disabled={pageIndex >= story.pages.length - 1} aria-label="Bagian berikutnya" className="rounded-full p-2 text-[#79552F] hover:bg-[#F3EBDD] disabled:opacity-30"><SkipForward size={20} /></button>
+        </div>
+        {!page.audioUrl && <p className="mt-3 text-center text-[10px] text-[#93372A]">Audio untuk halaman ini belum tersedia.</p>}
+      </section>
+
+      <div className="mt-5 flex items-center justify-between gap-3 sm:mt-6">
+        <button type="button" disabled={pageIndex === 0} onClick={() => changePage(pageIndex - 1)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#CDBB9F] px-4 py-2.5 text-xs font-bold text-[#79552F] disabled:opacity-30"><ArrowLeft size={15} /> Sebelumnya</button>
+        <span className="text-center text-[10px] text-[#8A7965]">Halaman {pageIndex + 1} dari {story.pages.length}</span>
+        <button type="button" disabled={pageIndex === story.pages.length - 1} onClick={() => changePage(pageIndex + 1)} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#431714] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-30">Berikutnya <SkipForward size={14} /></button>
+      </div>
+
+      <p className="mt-6 px-3 pb-2 text-center text-[10px] leading-5 text-[#8A7965]"><BookOpen className="mr-1 inline" size={13} /> Cerita pribadi ini hanya tersedia bagi penerima Gift Card selama masa akses.</p>
+
+      {zoomOpen && page.imageUrl && <div role="dialog" aria-modal="true" aria-label="Ilustrasi cerita diperbesar" onClick={() => setZoomOpen(false)} className="fixed inset-0 z-[200] flex items-center justify-center bg-[#160D0B]/95 p-3 sm:p-8">
+        <button type="button" onClick={() => setZoomOpen(false)} aria-label="Tutup gambar" className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur hover:bg-white/25"><X size={22} /></button>
+        <img src={page.imageUrl} alt={page.title || story.title} onClick={event => event.stopPropagation()} className="max-h-[92dvh] max-w-full touch-pinch-zoom select-none object-contain" />
+        <span className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/45 px-4 py-2 text-[10px] text-white">Ketuk di luar gambar atau tombol × untuk menutup</span>
+      </div>}
     </main>
   </ShopLayout>;
 }
