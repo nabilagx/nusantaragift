@@ -117,3 +117,19 @@ html {
     animation: none;
   }
 }
+
+
+@keyframes book-page-enter {
+  from { opacity: 0.55; transform: perspective(1200px) rotateY(-7deg) translateX(10px); }
+  to { opacity: 1; transform: perspective(1200px) rotateY(0) translateX(0); }
+}
+
+.book-page-enter {
+  transform-origin: left center;
+  animation: book-page-enter 420ms cubic-bezier(.2,.75,.25,1) both;
+  backface-visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-page-enter { animation: none; }
+}
