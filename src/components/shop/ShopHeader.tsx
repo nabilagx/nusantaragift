@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bell, Settings } from "lucide-react";
+import { Bell, Settings, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const headerActions = [
@@ -17,7 +17,7 @@ const iconMap = {
 };
 
 export default function Header() {
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);\n  const [loggingOut, setLoggingOut] = useState(false);\n\n  async function logout() {\n    if (loggingOut) return;\n    setLoggingOut(true);\n    try {\n      const supabase = createClient();\n      const { error } = await supabase.auth.signOut({ scope: "global" });\n      if (error) throw error;\n      try { localStorage.removeItem("nusantragift-cart"); localStorage.removeItem("nusantaragift-wishlist"); } catch {}\n      window.location.replace("/login?loggedOut=1");\n    } catch (error) {\n      console.error("Gagal mengakhiri sesi Customer:", error);\n      setLoggingOut(false);\n    }\n  }
 
   useEffect(() => {
     const supabase = createClient();
