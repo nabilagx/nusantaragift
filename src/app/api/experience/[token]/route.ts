@@ -17,8 +17,13 @@ export async function GET(_request: Request, context: Context) {
     .select("order_id,recipient_user_id,recipient_email,expires_at")
     .eq("access_token", token).maybeSingle();
   if (accessError || !access) return NextResponse.json({ error: "QR Gift Card tidak ditemukan." }, { status: 404 });
-  if (access.recipient_user_id !== user.id || String(access.recipient_email).toLowerCase() !== String(user.email ?? "").toLowerCase()) {
-    return NextResponse.json({ error: "QR ini hanya dapat dibuka oleh akun email penerima yang dituju." }, { status: 403 });
+  // The recipient's verified, unique Supabase email is the binding key. Keep the
+  // stored recipient id for audit, but do not let a stale id block the intended email.
+  const verifiedEmail = Boolean(user.email_confirmed_at);
+  const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).maybeSingle();
+  if (!verifiedEmail || profile?.role_id !== "customer" ||
+      String(access.recipient_email).trim().toLowerCase() !== String(user.email ?? "").trim().toLowerCase()) {
+    return NextResponse.json({ error: "QR ini hanya dapat dibuka oleh akun Customer dengan email penerima yang sudah diverifikasi." }, { status: 403 });
   }
   if (new Date(access.expires_at).getTime() <= Date.now()) return NextResponse.json({ error: "Masa akses cerita sudah berakhir. QR berlaku selama 7 hari sejak pembayaran." }, { status: 410 });
 
