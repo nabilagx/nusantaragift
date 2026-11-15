@@ -126,8 +126,9 @@ export async function PATCH(request: Request) {
   const previousMetadata = current as typeof current & { metadata?: Record<string, unknown> };
   const metadata = { ...(previousMetadata.metadata ?? {}), region: "Indonesia", size: "1 Paket", image, imageAlt: name,
     summary: { type: categorySlug, format: "Produk UMKM", unlock: "Fisik" } };
+  const nextStatus = ["suspended", "banned"].includes(current.status) ? "pending_review" : current.status;
   const { data, error } = await supabase.from("products").update({
-    name, description, category_id: category.id, price, stock, metadata, updated_at: new Date().toISOString(),
+    name, description, category_id: category.id, price, stock, metadata, status: nextStatus, updated_at: new Date().toISOString(),
   }).eq("id", id).eq("seller_id", user.id)
     .select("id,name,slug,price,stock,status,metadata").single();
   if (error) return NextResponse.json({ error: "Perubahan produk gagal disimpan." }, { status: 400 });
