@@ -136,11 +136,18 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
 
 
   async function review(id: string, status: "active" | "rejected") {
+    const note = status === "rejected"
+      ? window.prompt("Alasan revisi untuk UMKM (minimal 10 karakter):")
+      : "Produk memenuhi standar kurasi.";
+    if (!note || note.trim().length < 10) {
+      if (status === "rejected") setError("Alasan revisi wajib diisi minimal 10 karakter.");
+      return;
+    }
     setBusy(id); setError(""); setMessage("");
     try {
       const r = await fetch(`/api/admin/products/${id}/review`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, note: status === "rejected" ? "Mohon perbaiki informasi produk dan ajukan kembali." : null }),
+        body: JSON.stringify({ status, note: note.trim() }),
       });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Moderasi gagal.");
       setMessage(status === "active" ? "Produk disetujui dan dipublikasikan." : "Produk dikembalikan untuk perbaikan.");
