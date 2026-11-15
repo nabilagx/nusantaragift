@@ -12,7 +12,7 @@ import DashboardShell, { type DashboardNavItem } from "@/components/dashboard/Da
 
 type Product = {
   id: string; name: string; description: string | null; price: number; stock: number;
-  seller_name: string; category_name: string; created_at: string; status: string; sales_count?: number; metadata?: Record<string, unknown>;
+  seller_name: string; category_name: string; created_at: string; status: string; sales_count?: number; metadata?: Record<string, unknown>; moderation_note?: string | null;
 };
 type AdminNotice = { id: string; title: string; message: string; type: string; created_at: string };
 type Order = {
@@ -136,11 +136,18 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
 
 
   async function review(id: string, status: "active" | "rejected") {
+    const note = status === "rejected"
+      ? window.prompt("Alasan revisi untuk UMKM (minimal 10 karakter):")
+      : "Produk memenuhi standar kurasi.";
+    if (!note || note.trim().length < 10) {
+      if (status === "rejected") setError("Alasan revisi wajib diisi minimal 10 karakter.");
+      return;
+    }
     setBusy(id); setError(""); setMessage("");
     try {
       const r = await fetch(`/api/admin/products/${id}/review`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, note: status === "rejected" ? "Mohon perbaiki informasi produk dan ajukan kembali." : null }),
+        body: JSON.stringify({ status, note: note.trim() }),
       });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Moderasi gagal.");
       setMessage(status === "active" ? "Produk disetujui dan dipublikasikan." : "Produk dikembalikan untuk perbaikan.");
@@ -158,6 +165,32 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Produk gagal diperbarui."); }
     finally { setBusy(""); }
+  }
+
+  async function moderateProduct(id: string, action: "warn" | "suspend" | "ban" | "restore") {
+    const reason = window.prompt(
+      action === "warn" ? "Alasan peringatan (minimal 10 karakter):" :
+      action === "suspend" ? "Alasan penangguhan produk (minimal 10 karakter):" :
+      action === "ban" ? "Alasan pelarangan produk (minimal 10 karakter):" :
+      "Alasan pemulihan produk (minimal 10 karakter):"
+    );
+    if (!reason || reason.trim().length < 10) {
+      setError("Alasan moderasi wajib diisi minimal 10 karakter.");
+      return;
+    }
+    setBusy(id); setError(""); setMessage("");
+    try {
+      const r = await fetch(`/api/admin/products/${id}/moderate`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, reason: reason.trim() }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Tindakan moderasi gagal.");
+      setMessage("Tindakan moderasi dan alasannya berhasil dicatat.");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Tindakan moderasi gagal.");
+    } finally { setBusy(""); }
   }
 
   async function createAdminProduct(e: React.FormEvent<HTMLFormElement>) {
@@ -316,14 +349,33 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
         </aside>
       </div>
       <article className="mt-5 rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5">
-        <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-[8px] font-bold tracking-[.16em] text-[#C79854]">PLATFORM CATALOG CONTROL</p><h3 className="mt-1 font-display text-[21px] text-[#431714]">Manajemen seluruh produk</h3><p className="mt-1 text-[9px] text-[#7A6C5E]">Admin dapat mengubah detail, stok, dan status arsip seluruh katalog.</p></div><div className="flex items-center gap-2"><span className="rounded-full bg-[#F3EBDD] px-3 py-2 text-[9px] font-bold text-[#93372A]">{catalog.length} produk</span><button onClick={()=>setCreatingProduct(true)} className="rounded-full bg-[#5A202A] px-4 py-2.5 text-[9px] font-bold text-white">+ Tambah produk</button></div></div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-3"><select value={catalogStatusFilter} onChange={e=>setCatalogStatusFilter(e.target.value)} aria-label="Filter status produk" className="h-11 rounded-xl border border-[#DCD2C1] bg-white px-3 text-sm"><option value="all">Semua status</option><option value="active">Tayang</option><option value="pending_review">Menunggu kurasi</option><option value="rejected">Perlu perbaikan</option><option value="archived">Diarsipkan</option></select><select value={salesSort} onChange={e=>setSalesSort(e.target.value)} aria-label="Urutkan produk berdasarkan penjualan" className="h-11 rounded-xl border border-[#DCD2C1] bg-white px-3 text-sm"><option value="high">Terlaris → terendah</option><option value="low">Terendah → terlaris</option><option value="newest">Produk terbaru</option></select><div className="flex items-center rounded-xl border border-[#E7DDCC] bg-white px-3 text-[10px] text-[#7A6C5E]">Jumlah terjual: {filteredCatalog.reduce((sum,p)=>sum+(p.sales_count??0),0)} unit</div></div><p className="mt-3 text-[9px] text-[#7A6C5E]">Penjualan dihitung dari pesanan lunas.</p><div className="mt-4 space-y-3">{filteredCatalog.map(p=><div key={p.id} className="rounded-lg border border-[#E7DDCC] bg-white p-3">
-          <div className="flex items-start gap-3"><div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-[#F3EBDD]">{typeof p.metadata?.image==="string"&&p.metadata.image?<img src={p.metadata.image} alt={p.name} className="h-full w-full object-cover"/>:<div className="flex h-full items-center justify-center text-[#C79854]"><Package size={22}/></div>}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-[8px] font-bold tracking-[.1em] text-[#9A713A]">{p.seller_name} · {p.category_name}</p><p className="mt-1 text-[11px] font-bold text-[#251E1A]">{p.name}</p><p className="mt-1 text-[9px] text-[#7A6C5E]">{money(p.price)} · Stok {p.stock} · Terjual {p.sales_count??0} unit</p></div><span className={`rounded-full px-2.5 py-1 text-[8px] font-bold ${statusClass(p.status)}`}>{p.status==="archived"?"Diarsipkan":p.status==="active"?"Tayang":p.status==="pending_review"?"Menunggu kurasi":p.status}</span></div></div></div>
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#E8DFD2] pt-3"><button onClick={()=>{setEditingProduct(p);setEditValues({name:p.name,description:p.description??"",price:String(p.price),stock:String(p.stock)});}} className="rounded-full border border-[#DCD2C1] px-3 py-1.5 text-[8px] font-bold text-[#431714]">Edit detail</button><button disabled={busy===p.id||p.stock===0} onClick={()=>void manageProduct(p.id,"stock",-1)} className="h-7 w-7 rounded-full border border-[#DCD2C1] text-[12px] disabled:opacity-30">−</button><button disabled={busy===p.id} onClick={()=>void manageProduct(p.id,"stock",1)} className="h-7 w-7 rounded-full border border-[#DCD2C1] text-[12px] disabled:opacity-30">+</button><span className="text-[8px] text-[#7A6C5E]">Atur stok</span>{p.status==="archived"?<button onClick={()=>void manageProduct(p.id,"restore")} className="ml-auto rounded-full bg-[#93372A] px-3 py-1.5 text-[8px] font-bold text-white">Pulihkan</button>:<button onClick={()=>void manageProduct(p.id,"archive")} className="ml-auto rounded-full border border-[#E6C7BD] px-3 py-1.5 text-[8px] font-bold text-[#93372A]">Arsipkan</button>}</div>
-        </div>)}</div>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div><p className="text-[8px] font-bold tracking-[.16em] text-[#C79854]">MODERATOR CATALOG VIEW</p><h3 className="mt-1 font-display text-[21px] text-[#431714]">Pengawasan seluruh katalog</h3><p className="mt-1 max-w-2xl text-[9px] leading-5 text-[#7A6C5E]">Admin hanya dapat melihat detail produk. Perubahan informasi, harga, dan stok tetap menjadi tanggung jawab UMKM. Tindakan moderasi wajib disertai alasan dan tercatat dalam histori.</p></div>
+          <span className="rounded-full bg-[#F3EBDD] px-3 py-2 text-[9px] font-bold text-[#93372A]">{catalog.length} produk</span>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          <input value={productSearch} onChange={e=>setProductSearch(e.target.value)} aria-label="Cari produk atau UMKM" placeholder="Cari produk atau UMKM..." className="h-11 w-full rounded-xl border border-[#DCD2C1] bg-white px-4 text-sm outline-none focus:border-[#93372A]"/>
+          <select value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)} aria-label="Filter kategori katalog" className="h-11 rounded-xl border border-[#DCD2C1] bg-white px-3 text-sm"><option value="all">Semua kategori</option>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select>
+          <select value={catalogStatusFilter} onChange={e=>setCatalogStatusFilter(e.target.value)} aria-label="Filter status moderasi" className="h-11 rounded-xl border border-[#DCD2C1] bg-white px-3 text-sm"><option value="all">Semua status</option><option value="active">Tayang</option><option value="pending_review">Menunggu kurasi</option><option value="rejected">Perlu revisi</option><option value="suspended">Ditangguhkan</option><option value="banned">Dilarang</option><option value="archived">Diarsipkan</option></select>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[9px] text-[#7A6C5E]"><span>{filteredCatalog.length} hasil · Penjualan dihitung dari pesanan lunas</span><select value={salesSort} onChange={e=>setSalesSort(e.target.value)} aria-label="Urutkan katalog" className="rounded-lg border border-[#DCD2C1] bg-white px-3 py-2"><option value="high">Terlaris</option><option value="low">Penjualan terendah</option><option value="newest">Terbaru</option></select></div>
+        {loading ? <p className="py-8 text-center text-[11px] text-[#7A6C5E]">Memuat katalog...</p> : filteredCatalog.length===0 ? <p className="py-10 text-center text-[11px] text-[#7A6C5E]">Tidak ada produk pada filter ini.</p> :
+          <div className="mt-4 space-y-3">{filteredCatalog.map(p=><article key={p.id} className="rounded-xl border border-[#E7DDCC] bg-white p-3 sm:p-4">
+            <div className="flex items-start gap-3">
+              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-[#F3EBDD]">{typeof p.metadata?.image==="string"&&p.metadata.image?<img src={p.metadata.image} alt={p.name} className="h-full w-full object-cover"/>:<div className="flex h-full items-center justify-center text-[#C79854]"><Package size={22}/></div>}</div>
+              <div className="min-w-0 flex-1"><div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="text-[8px] font-bold tracking-[.1em] text-[#9A713A]">{p.seller_name} · {p.category_name}</p><h4 className="mt-1 text-[11px] font-bold text-[#251E1A]">{p.name}</h4></div><span className={`rounded-full px-2.5 py-1 text-[8px] font-bold ${statusClass(p.status)}`}>{p.status==="active"?"Tayang":p.status==="pending_review"?"Menunggu kurasi":p.status==="rejected"?"Perlu revisi":p.status==="suspended"?"Ditangguhkan":p.status==="banned"?"Dilarang":p.status==="archived"?"Diarsipkan":p.status}</span></div>
+                <p className="mt-1 text-[9px] text-[#7A6C5E]">{money(p.price)} · Stok {p.stock} · Terjual {p.sales_count??0} unit</p><p className="mt-1 text-[9px] leading-4 text-[#7A6C5E]">{p.description||"Deskripsi belum tersedia."}</p>
+                {p.moderation_note&&<p className="mt-2 rounded-lg bg-[#FFF5E7] p-2 text-[9px] text-[#8B5B20]">Catatan moderasi: {p.moderation_note}</p>}
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 border-t border-[#E8DFD2] pt-3">
+              <button disabled={busy===p.id} onClick={()=>void moderateProduct(p.id,"warn")} className="rounded-full border border-[#DCD2C1] px-3 py-2 text-[8px] font-bold text-[#79552F] disabled:opacity-50">Beri peringatan</button>
+              {p.status!=="suspended"&&p.status!=="banned"&&p.status!=="archived"&&<button disabled={busy===p.id} onClick={()=>void moderateProduct(p.id,"suspend")} className="rounded-full border border-[#E6C7BD] px-3 py-2 text-[8px] font-bold text-[#93372A] disabled:opacity-50">Tangguhkan</button>}
+              {p.status!=="banned"&&<button disabled={busy===p.id} onClick={()=>void moderateProduct(p.id,"ban")} className="rounded-full bg-[#5A202A] px-3 py-2 text-[8px] font-bold text-white disabled:opacity-50">Larangan tampil</button>}
+              {(p.status==="suspended"||p.status==="banned")&&<button disabled={busy===p.id} onClick={()=>void moderateProduct(p.id,"restore")} className="rounded-full bg-[#E5D6B9] px-3 py-2 text-[8px] font-bold text-[#431714] disabled:opacity-50">Pulihkan ke antrean kurasi</button>}
+            </div>
+          </article>)}</div>}
       </article>
-      {creatingProduct && <div className="fixed inset-0 z-[81] flex items-center justify-center overflow-y-auto bg-[#431714]/60 p-4"><form onSubmit={createAdminProduct} className="my-auto w-full max-w-xl rounded-2xl bg-[#FDFAF3] p-5 shadow-2xl sm:p-7"><div className="flex items-start justify-between gap-3"><div><p className="text-[8px] font-bold tracking-[.16em] text-[#C79854]">ADMIN CATALOG CONTROL</p><h3 className="mt-1 font-display text-[23px] text-[#431714]">Buat produk untuk mitra</h3><p className="mt-1 text-[9px] text-[#7A6C5E]">Produk baru tetap melewati antrean kurasi sebelum tayang.</p></div><button type="button" onClick={()=>setCreatingProduct(false)} className="rounded-full border border-[#DCD2C1] px-3 py-1.5 text-[9px]">Tutup</button></div><div className="mt-5 grid gap-3 sm:grid-cols-2"><label className="text-[9px] font-bold text-[#7A6C5E] sm:col-span-2">MITRA UMKM<select required value={createValues.sellerId} onChange={e=>setCreateValues({...createValues,sellerId:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"><option value="">Pilih mitra terverifikasi</option>{sellers.filter(x=>x.status==="approved").map(x=><option key={x.user_id} value={x.user_id}>{x.name}</option>)}</select></label><label className="text-[9px] font-bold text-[#7A6C5E]">NAMA PRODUK<input required minLength={3} value={createValues.name} onChange={e=>setCreateValues({...createValues,name:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"/></label><label className="text-[9px] font-bold text-[#7A6C5E]">KATEGORI<select value={createValues.category} onChange={e=>setCreateValues({...createValues,category:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"><option value="cerita">Cerita</option><option value="rasa">Rasa</option><option value="budaya">Budaya</option></select></label><label className="text-[9px] font-bold text-[#7A6C5E]">HARGA<input required type="number" min="1" value={createValues.price} onChange={e=>setCreateValues({...createValues,price:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"/></label><label className="text-[9px] font-bold text-[#7A6C5E]">STOK<input required type="number" min="0" value={createValues.stock} onChange={e=>setCreateValues({...createValues,stock:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"/></label><label className="text-[9px] font-bold text-[#7A6C5E] sm:col-span-2">DESKRIPSI<textarea required minLength={10} rows={3} value={createValues.description} onChange={e=>setCreateValues({...createValues,description:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"/></label><label className="text-[9px] font-bold text-[#7A6C5E] sm:col-span-2">URL FOTO<input type="url" value={createValues.imageUrl} onChange={e=>setCreateValues({...createValues,imageUrl:e.target.value})} placeholder="Link gambar publik (opsional)" className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"/></label></div><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={()=>setCreatingProduct(false)} className="rounded-full border border-[#DCD2C1] px-4 py-2 text-[9px]">Batal</button><button disabled={busy==="create"} className="rounded-full bg-[#5A202A] px-5 py-2 text-[9px] font-bold text-white">{busy==="create"?"Membuat...":"Buat & kirim kurasi"}</button></div></form></div>}
-      {editingProduct && <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#431714]/60 p-4"><form onSubmit={saveAdminProduct} className="my-auto w-full max-w-xl rounded-2xl bg-[#FDFAF3] p-5 shadow-2xl sm:p-7"><div className="flex items-start justify-between gap-3"><div><p className="text-[8px] font-bold tracking-[.16em] text-[#C79854]">ADMIN CATALOG CONTROL</p><h3 className="mt-1 font-display text-[23px] text-[#431714]">Edit produk</h3></div><button type="button" onClick={()=>setEditingProduct(null)} className="rounded-full border border-[#DCD2C1] px-3 py-1.5 text-[9px]">Tutup</button></div><div className="mt-5 grid gap-3"><label className="text-[9px] font-bold text-[#7A6C5E]">NAMA<input required minLength={3} value={editValues.name} onChange={e=>setEditValues({...editValues,name:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"/></label><label className="text-[9px] font-bold text-[#7A6C5E]">DESKRIPSI<textarea required minLength={10} rows={3} value={editValues.description} onChange={e=>setEditValues({...editValues,description:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"/></label><div className="grid grid-cols-2 gap-3"><label className="text-[9px] font-bold text-[#7A6C5E]">HARGA<input required type="number" min="1" value={editValues.price} onChange={e=>setEditValues({...editValues,price:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"/></label><label className="text-[9px] font-bold text-[#7A6C5E]">STOK<input required type="number" min="0" value={editValues.stock} onChange={e=>setEditValues({...editValues,stock:e.target.value})} className="mt-1.5 w-full rounded-lg border border-[#DCD2C1] bg-white p-3 text-[11px]"/></label></div></div><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={()=>setEditingProduct(null)} className="rounded-full border border-[#DCD2C1] px-4 py-2 text-[9px]">Batal</button><button disabled={busy===editingProduct.id} className="rounded-full bg-[#5A202A] px-5 py-2 text-[9px] font-bold text-white">Simpan perubahan</button></div></form></div>}
       <EditorialFooter/>
     </section>
 )}

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell, Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -17,10 +17,10 @@ const iconMap = {
 };
 
 export default function Header() {
-  const supabase = useMemo(() => createClient(), []);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
+    const supabase = createClient();
     let active = true;
     let currentChannel: ReturnType<typeof supabase.channel> | null = null;
     let currentUserId: string | null = null;
@@ -141,7 +141,7 @@ export default function Header() {
         currentChannel = null;
       }
     };
-  }, [supabase]);
+  }, []);
 
   return (
     <header className="flex w-full items-center justify-between bg-[#F7F1E3] px-6 py-5">

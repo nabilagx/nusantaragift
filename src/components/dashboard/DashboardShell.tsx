@@ -81,7 +81,7 @@ export default function DashboardShell({
   return (
     <div className={`dashboard-shell min-h-dvh text-[#251E1A] ${role === "ADMIN" ? "bg-[#F7F1E3]" : "bg-[#F7F1E3]"}`}>
       <aside className={`fixed inset-y-0 left-0 z-40 hidden w-[260px] flex-col border-r xl:flex ${role === "ADMIN" ? "border-[#5A2A24] bg-[#431714] text-[#F5F1E7]" : "border-[#E7DDCC] bg-[#FDFAF3]"}`}>
-        <Link href={home} className="block px-7 pt-7"><img src="/images/brand/LOGO.svg" alt="Nusantara Gift" className="h-12 w-[174px] object-contain object-left"/><span className={`mt-2 block text-[8px] font-bold tracking-[.18em] ${role === "ADMIN" ? "text-[#C79854]" : "text-[#7A6C5E]"}`}>{role === "ADMIN" ? "PLATFORM CONTROL · ADMIN" : "ARTISAN ATELIER · UMKM"}</span></Link>
+        <Link href={home} className="block px-7 pt-7"><img src="/images/brand/LOGO.svg" alt="Nusantara Gift" className="h-12 w-[174px] object-contain object-left"/><span className={`mt-2 block text-[8px] font-bold tracking-[.18em] ${role === "ADMIN" ? "text-[#C79854]" : "text-[#7A6C5E]"}`}>{role === "ADMIN" ? "MODERATION & OPERATIONS · ADMIN" : "ARTISAN ATELIER · UMKM"}</span></Link>
         <div className="px-7 pt-9">
           <p className={`text-[9px] font-bold tracking-[.15em] ${role === "ADMIN" ? "text-[#D8B77C]" : "text-[#C79854]"}`}>{roleLabel}</p>
           <div className="mt-7 h-px bg-[#DCD2C1]" />
@@ -102,7 +102,7 @@ export default function DashboardShell({
         <div className="mt-auto px-7 pb-7">
           <div className={`mb-5 h-px ${role === "ADMIN" ? "bg-[#6F333A]" : "bg-[#DCD2C1]"}`} />
           <p className={`text-[11px] font-bold ${role === "ADMIN" ? "text-white" : "text-[#251E1A]"}`}>{role === "ADMIN" ? "Administrator" : "Akun artisan"}</p>
-          <p className={`mt-1 text-[9px] ${role === "ADMIN" ? "text-[#C79854]" : "text-[#93372A]"}`}>{role === "ADMIN" ? "Akses penuh · Control room" : "Terverifikasi · Aktif"}</p>
+          <p className={`mt-1 text-[9px] ${role === "ADMIN" ? "text-[#C79854]" : "text-[#93372A]"}`}>{role === "ADMIN" ? "Moderator katalog · Operasional" : "Terverifikasi · Aktif"}</p>
           <button onClick={() => void logout()} disabled={loggingOut}
             className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#E5C58D] bg-[#F3EBDD] px-4 text-[11px] font-bold text-[#7B2925] shadow-sm transition hover:bg-white disabled:cursor-wait disabled:opacity-60">
             <LogOut size={15} strokeWidth={2.4} /> {loggingOut ? "Mengakhiri sesi..." : "Keluar akun"}

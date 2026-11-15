@@ -42,7 +42,7 @@ const mobileNav: DashboardNavItem[] = [
 const money = (v: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(v || 0));
 const date = (v: string) => new Date(v).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 const labels: Record<string, string> = {
-  pending_review: "Menunggu kurasi", active: "Tayang di toko", rejected: "Perlu revisi", draft: "Draft",
+  pending_review: "Menunggu kurasi", active: "Tayang di toko", rejected: "Perlu revisi", suspended: "Ditangguhkan admin", banned: "Diblokir admin", draft: "Draft",
   paid: "Pesanan baru", processing: "Diproses", shipped: "Dalam pengiriman",
   delivered: "Terkirim", completed: "Selesai", cancelled: "Dibatalkan",
 };
@@ -62,7 +62,7 @@ function imageUrl(value: string) {
 }
 function statusClass(status: string) {
   if (["active", "approved", "completed", "delivered", "shipped"].includes(status)) return "bg-[#EAF0E8] text-[#4F6E59]";
-  if (["rejected", "cancelled"].includes(status)) return "bg-[#F8E9E5] text-[#93372A]";
+  if (["rejected", "cancelled", "suspended", "banned"].includes(status)) return "bg-[#F8E9E5] text-[#93372A]";
   return "bg-[#F6EFDF] text-[#9A713A]";
 }
 function PageIntro({ eyebrow, title, description, action }: { eyebrow: string; title: React.ReactNode; description: React.ReactNode; action?: React.ReactNode }) {
@@ -216,7 +216,7 @@ export default function SellerDashboardPage({ module = "overview" }: { module?: 
       const category = String(p.metadata?.story_category ?? summary?.type ?? "").toLocaleLowerCase("id");
       const statusMatch = productFilter === "all" ||
         (productFilter === "active" && p.status === "active") || (productFilter === "pending" && p.status === "pending_review") ||
-        (productFilter === "rejected" && p.status === "rejected") || (productFilter === "archived" && p.status === "archived");
+        (productFilter === "rejected" && p.status === "rejected") || (productFilter === "suspended" && p.status === "suspended") || (productFilter === "banned" && p.status === "banned") || (productFilter === "archived" && p.status === "archived");
       const categoryMatch = productCategoryFilter === "all" || category === productCategoryFilter ||
         (productCategoryFilter === "cerita" && category.includes("cerita"));
       const searchMatch = !query || [p.name, p.description ?? "", p.slug, category, p.status]

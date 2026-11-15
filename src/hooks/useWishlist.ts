@@ -1,19 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type FavoriteRow = { product_id: string };
 type ProductSlugRow = { id: string; slug: string };
 
 export function useWishlist() {
-  const supabase = useMemo(() => createClient(), []);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState("");
 
   const loadFavorites = useCallback(async (nextUserId: string | null) => {
+    const supabase = createClient();
     setUserId(nextUserId);
     setError("");
     if (!nextUserId) {
@@ -55,10 +55,11 @@ export function useWishlist() {
       setFavorites(((products ?? []) as ProductSlugRow[]).map((product) => product.slug));
     }
     setIsLoaded(true);
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     let active = true;
+    const supabase = createClient();
     const initialize = async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (!active) return;
@@ -81,9 +82,10 @@ export function useWishlist() {
       active = false;
       subscription.unsubscribe();
     };
-  }, [loadFavorites, supabase]);
+  }, [loadFavorites]);
 
   const toggleFavorite = useCallback(async (slug: string) => {
+    const supabase = createClient();
     if (!userId) {
       window.location.assign("/login?next=%2Fshop");
       return;
@@ -138,7 +140,7 @@ export function useWishlist() {
       }
       setFavorites((current) => current.includes(slug) ? current : [...current, slug]);
     }
-  }, [supabase, userId]);
+  }, [userId]);
 
   const isFavorite = useCallback((id: string) => favorites.includes(id), [favorites]);
 
