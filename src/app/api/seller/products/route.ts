@@ -126,7 +126,7 @@ export async function PATCH(request: Request) {
   const previousMetadata = current as typeof current & { metadata?: Record<string, unknown> };
   const metadata = { ...(previousMetadata.metadata ?? {}), region: "Indonesia", size: "1 Paket", image, imageAlt: name,
     summary: { type: categorySlug, format: "Produk UMKM", unlock: "Fisik" } };
-  const nextStatus = ["suspended", "banned"].includes(current.status) ? "pending_review" : current.status;
+  const nextStatus = ["rejected", "suspended", "banned"].includes(current.status) ? "pending_review" : current.status;
   const { data, error } = await supabase.from("products").update({
     name, description, category_id: category.id, price, stock, metadata, status: nextStatus, updated_at: new Date().toISOString(),
   }).eq("id", id).eq("seller_id", user.id)
