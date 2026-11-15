@@ -59,17 +59,6 @@ export default function DigitalGiftExperience({ token }: { token: string }) {
   const story = gift?.stories[storyIndex];
   const page = story?.pages[pageIndex];
 
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-    }
-    setPlaying(false);
-    setCurrentTime(0);
-    setAudioDuration(0);
-  }, [page?.id]);
-
   async function togglePlayback() {
     const audio = audioRef.current;
     if (!audio || !page?.audioUrl) return;
@@ -86,8 +75,17 @@ export default function DigitalGiftExperience({ token }: { token: string }) {
     }
   }
 
+  function resetAudio() {
+    const audio = audioRef.current;
+    if (audio) { audio.pause(); audio.currentTime = 0; }
+    setPlaying(false);
+    setCurrentTime(0);
+    setAudioDuration(0);
+  }
+
   function changePage(next: number) {
     if (!story) return;
+    resetAudio();
     setPageIndex(Math.max(0, Math.min(story.pages.length - 1, next)));
   }
 
@@ -121,7 +119,7 @@ export default function DigitalGiftExperience({ token }: { token: string }) {
           <p className="mt-3 text-xs text-white/70">Pesanan {gift.orderNumber} · Cerita pribadi yang dikirim khusus untukmu</p>
         </div>
         {gift.stories.length > 1 && <div className="flex flex-wrap justify-center gap-2 border-t border-white/10 px-4 pb-5">
-          {gift.stories.map((item, index) => <button key={item.slug} onClick={() => { setStoryIndex(index); setPageIndex(0); }} className={"rounded-full px-4 py-2 text-xs font-bold transition " + (index === storyIndex ? "bg-[#D9B979] text-[#431714]" : "bg-white/10 text-white hover:bg-white/20")}>{item.title}</button>)}
+          {gift.stories.map((item, index) => <button key={item.slug} onClick={() => { resetAudio(); setStoryIndex(index); setPageIndex(0); }} className={"rounded-full px-4 py-2 text-xs font-bold transition " + (index === storyIndex ? "bg-[#D9B979] text-[#431714]" : "bg-white/10 text-white hover:bg-white/20")}>{item.title}</button>)}
         </div>}
       </header>
 
