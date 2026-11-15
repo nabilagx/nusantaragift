@@ -17,13 +17,16 @@ export async function GET(_request: Request, context: Context) {
     .select("order_id,recipient_user_id,recipient_email,expires_at")
     .eq("access_token", token).maybeSingle();
   if (accessError || !access) return NextResponse.json({ error: "QR Gift Card tidak ditemukan." }, { status: 404 });
-  // The recipient's verified, unique Supabase email is the binding key. Keep the
-  // stored recipient id for audit, but do not let a stale id block the intended email.
+  // Bind the QR to the exact verified recipient account and its normalized email.
+  // Read the role with the service client so profile RLS cannot produce a false denial.
   const verifiedEmail = Boolean(user.email_confirmed_at);
-  const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).maybeSingle();
-  if (!verifiedEmail || profile?.role_id !== "customer" ||
-      String(access.recipient_email).trim().toLowerCase() !== String(user.email ?? "").trim().toLowerCase()) {
-    return NextResponse.json({ error: "QR ini hanya dapat dibuka oleh akun Customer dengan email penerima yang sudah diverifikasi." }, { status: 403 });
+  const normalizedUserEmail = String(user.email ?? "").trim().toLowerCase();
+  const normalizedRecipientEmail = String(access.recipient_email ?? "").trim().toLowerCase();
+  const { data: recipientProfile, error: profileError } = await admin.from("profiles")
+    .select("role_id").eq("id", user.id).maybeSingle();
+  if (!verifiedEmail || profileError || recipientProfile?.role_id !== "customer" ||
+      access.recipient_user_id !== user.id || normalizedRecipientEmail !== normalizedUserEmail) {
+    return NextResponse.json({ error: "QR ini hanya dapat dibuka oleh akun Customer terverifikasi yang terdaftar sebagai penerima." }, { status: 403 });
   }
   if (new Date(access.expires_at).getTime() <= Date.now()) return NextResponse.json({ error: "Masa akses cerita sudah berakhir. QR berlaku selama 7 hari sejak pembayaran." }, { status: 410 });
 
