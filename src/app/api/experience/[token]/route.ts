@@ -17,16 +17,18 @@ export async function GET(_request: Request, context: Context) {
     .select("order_id,recipient_user_id,recipient_email,expires_at")
     .eq("access_token", token).maybeSingle();
   if (accessError || !access) return NextResponse.json({ error: "QR Gift Card tidak ditemukan." }, { status: 404 });
-  // Bind the QR to the exact verified recipient account and its normalized email.
-  // Read the role with the service client so profile RLS cannot produce a false denial.
+  // Email is the recipient identity entered at checkout. Do not require the
+  // separately stored user id to match: older orders may have that field stale
+  // or populated from a different account, while the verified email is correct.
+  // The random, unguessable QR token plus verified-email check keeps access scoped.
   const verifiedEmail = Boolean(user.email_confirmed_at);
   const normalizedUserEmail = String(user.email ?? "").trim().toLowerCase();
   const normalizedRecipientEmail = String(access.recipient_email ?? "").trim().toLowerCase();
   const { data: recipientProfile, error: profileError } = await admin.from("profiles")
     .select("role_id").eq("id", user.id).maybeSingle();
   if (!verifiedEmail || profileError || recipientProfile?.role_id !== "customer" ||
-      access.recipient_user_id !== user.id || normalizedRecipientEmail !== normalizedUserEmail) {
-    return NextResponse.json({ error: "QR ini hanya dapat dibuka oleh akun Customer terverifikasi yang terdaftar sebagai penerima." }, { status: 403 });
+      !normalizedRecipientEmail || normalizedRecipientEmail !== normalizedUserEmail) {
+    return NextResponse.json({ error: "QR ini hanya dapat dibuka oleh akun Customer dengan email penerima yang sudah diverifikasi." }, { status: 403 });
   }
   if (new Date(access.expires_at).getTime() <= Date.now()) return NextResponse.json({ error: "Masa akses cerita sudah berakhir. QR berlaku selama 7 hari sejak pembayaran." }, { status: 410 });
 
