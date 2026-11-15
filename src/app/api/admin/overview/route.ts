@@ -86,99 +86,23 @@ export async function PATCH(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Silakan login." }, { status: 401 });
-  const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).single();
-  if (profile?.role_id !== "admin") return NextResponse.json({ error: "Akses khusus admin." }, { status: 403 });
+  const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).maybeSingle();
+  if (profile?.role_id !== "admin") return NextResponse.json({ error: "Akses khusus moderator." }, { status: 403 });
+
   const body = await request.json().catch(() => ({}));
-  if (body.action === "mark_notification_read" && typeof body.notificationId === "string") {
-    const { data, error } = await supabase.from("notifications").update({ is_read: true }).eq("id", body.notificationId).eq("user_id", user.id).select("id").maybeSingle();
-    if (error || !data) return NextResponse.json({ error: "Notifikasi gagal diperbarui." }, { status: 400 });
-    return NextResponse.json({ success: true });
+  if (body.action !== "mark_notification_read" || typeof body.notificationId !== "string") {
+    return NextResponse.json({ error: "Admin hanya memiliki akses baca katalog. Gunakan alur moderasi untuk tindakan produk." }, { status: 403 });
   }
-  const id = typeof body.id === "string" ? body.id : "";
-  const action = typeof body.action === "string" ? body.action : "update";
-  if (!id) return NextResponse.json({ error: "ID produk tidak valid." }, { status: 400 });
-
-  const { data: current } = await supabase.from("products").select("id,name,status,stock").eq("id", id).maybeSingle();
-  if (!current) return NextResponse.json({ error: "Produk tidak ditemukan." }, { status: 404 });
-
-  if (action === "stock") {
-    const delta = Number(body.delta);
-    if (!Number.isInteger(delta) || ![-1, 1].includes(delta) || Number(current.stock) + delta < 0)
-      return NextResponse.json({ error: "Perubahan stok tidak valid." }, { status: 400 });
-    const { data, error } = await supabase.from("products").update({ stock: Number(current.stock) + delta, updated_at: new Date().toISOString() }).eq("id", id).select("id,name,stock,status").single();
-    if (error) return NextResponse.json({ error: "Stok gagal diperbarui." }, { status: 400 });
-    return NextResponse.json({ product: data });
-  }
-  if (action === "archive" || action === "restore") {
-    const status = action === "archive" ? "archived" : "pending_review";
-    const { data, error } = await supabase.from("products").update({ status, updated_at: new Date().toISOString() }).eq("id", id).select("id,name,status").single();
-    if (error) return NextResponse.json({ error: "Status produk gagal diperbarui." }, { status: 400 });
-    return NextResponse.json({ product: data });
-  }
-
-  const name = typeof body.name === "string" ? body.name.trim() : "";
-  const description = typeof body.description === "string" ? body.description.trim() : "";
-  const price = Number(body.price);
-  const stock = Number(body.stock);
-  if (name.length < 3 || description.length < 10 || !Number.isSafeInteger(price) || price < 1 || !Number.isInteger(stock) || stock < 0)
-    return NextResponse.json({ error: "Nama, deskripsi, harga, atau stok tidak valid." }, { status: 400 });
-  const { data, error } = await supabase.from("products").update({ name, description, price, stock, updated_at: new Date().toISOString() })
-    .eq("id", id).select("id,name,price,stock,status").single();
-  if (error) return NextResponse.json({ error: "Perubahan produk gagal disimpan." }, { status: 400 });
-  return NextResponse.json({ product: data });
+  const { data, error } = await supabase.from("notifications").update({ is_read: true })
+    .eq("id", body.notificationId).eq("user_id", user.id).select("id").maybeSingle();
+  if (error || !data) return NextResponse.json({ error: "Notifikasi gagal diperbarui." }, { status: 400 });
+  return NextResponse.json({ success: true });
 }
 
-export async function DELETE(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Silakan login." }, { status: 401 });
-  const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).single();
-  if (profile?.role_id !== "admin") return NextResponse.json({ error: "Akses khusus admin." }, { status: 403 });
-  const body = await request.json().catch(() => ({}));
-  const id = typeof body.id === "string" ? body.id : "";
-  if (!id) return NextResponse.json({ error: "ID produk tidak valid." }, { status: 400 });
-  const { data, error } = await supabase.from("products").update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", id).select("id,name,status").maybeSingle();
-  if (error) return NextResponse.json({ error: "Produk gagal diarsipkan." }, { status: 400 });
-  if (!data) return NextResponse.json({ error: "Produk tidak ditemukan." }, { status: 404 });
-  return NextResponse.json({ product: data, archived: true });
+export async function DELETE() {
+  return NextResponse.json({ error: "Penghapusan produk tidak tersedia bagi moderator." }, { status: 405 });
 }
 
-
-export async function POST(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Silakan login." }, { status: 401 });
-  const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).single();
-  if (profile?.role_id !== "admin") return NextResponse.json({ error: "Akses khusus admin." }, { status: 403 });
-  const body = await request.json().catch(() => ({}));
-  const sellerId = typeof body.sellerId === "string" ? body.sellerId : "";
-  const name = typeof body.name === "string" ? body.name.trim() : "";
-  const description = typeof body.description === "string" ? body.description.trim() : "";
-  const categorySlug = typeof body.category === "string" ? body.category : "";
-  const price = Number(body.price);
-  const stock = Number(body.stock);
-  const image = typeof body.imageUrl === "string" ? body.imageUrl.trim() : "";
-  if (!sellerId || name.length < 3 || description.length < 10 || !["cerita","rasa","budaya"].includes(categorySlug) ||
-      !Number.isSafeInteger(price) || price < 1 || !Number.isInteger(stock) || stock < 0) {
-    return NextResponse.json({ error: "Lengkapi mitra, nama, deskripsi, kategori, harga, dan stok." }, { status: 400 });
-  }
-  if (image) {
-    try { const url = new URL(image); if (!["https:","http:"].includes(url.protocol)) throw new Error(); }
-    catch { return NextResponse.json({ error: "URL gambar harus berupa HTTP atau HTTPS." }, { status: 400 }); }
-  }
-  const [{ data: seller }, { data: category }] = await Promise.all([
-    supabase.from("seller_profiles").select("user_id,status").eq("user_id", sellerId).single(),
-    supabase.from("categories").select("id").eq("slug", categorySlug).single(),
-  ]);
-  if (!seller || seller.status !== "approved") return NextResponse.json({ error: "Pilih mitra UMKM yang sudah terverifikasi." }, { status: 400 });
-  if (!category) return NextResponse.json({ error: "Kategori tidak ditemukan." }, { status: 400 });
-  const slug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") + "-" + crypto.randomUUID().slice(0,6);
-  const metadata = { region:"Indonesia", size:"1 Paket", image, imageAlt:name, summary:{type:categorySlug,format:"Produk UMKM",unlock:"Fisik"} };
-  const { data, error } = await supabase.from("products").insert({
-    seller_id:sellerId, category_id:category.id, name, slug, description, price, stock,
-    sku:"ADMIN-"+crypto.randomUUID().slice(0,8).toUpperCase(), status:"pending_review",
-    delivery_type:"physical", metadata,
-  }).select("id,name,price,stock,status").single();
-  if (error) return NextResponse.json({ error: "Produk gagal dibuat." }, { status: 400 });
-  return NextResponse.json({ product:data }, { status:201 });
+export async function POST() {
+  return NextResponse.json({ error: "Pembuatan produk dilakukan oleh mitra UMKM." }, { status: 405 });
 }
