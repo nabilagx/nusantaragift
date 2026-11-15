@@ -17,18 +17,42 @@ export async function GET(_request: Request, context: Context) {
     .select("order_id,recipient_user_id,recipient_email,expires_at")
     .eq("access_token", token).maybeSingle();
   if (accessError || !access) return NextResponse.json({ error: "QR Gift Card tidak ditemukan." }, { status: 404 });
-  // Email is the recipient identity entered at checkout. Do not require the
-  // separately stored user id to match: older orders may have that field stale
-  // or populated from a different account, while the verified email is correct.
-  // The random, unguessable QR token plus verified-email check keeps access scoped.
+  // Email entered at checkout is the recipient identity. The verified email
+  // must match it; a stale recipient_user_id must not block a valid recipient.
   const verifiedEmail = Boolean(user.email_confirmed_at);
   const normalizedUserEmail = String(user.email ?? "").trim().toLowerCase();
   const normalizedRecipientEmail = String(access.recipient_email ?? "").trim().toLowerCase();
   const { data: recipientProfile, error: profileError } = await admin.from("profiles")
     .select("role_id").eq("id", user.id).maybeSingle();
-  if (!verifiedEmail || profileError || recipientProfile?.role_id !== "customer" ||
-      !normalizedRecipientEmail || normalizedRecipientEmail !== normalizedUserEmail) {
-    return NextResponse.json({ error: "QR ini hanya dapat dibuka oleh akun Customer dengan email penerima yang sudah diverifikasi." }, { status: 403 });
+
+  // A database/profile lookup failure is an internal error, not proof that the
+  // visitor is the wrong recipient. Keep diagnostics free of personal data.
+  if (profileError) {
+    console.error("[experience] recipient profile lookup failed", {
+      code: profileError.code ?? "unknown",
+      hasUser: true,
+      hasVerifiedEmail: verifiedEmail,
+    });
+    return NextResponse.json({ error: "Sistem belum dapat memverifikasi akun penerima. Silakan coba lagi nanti." }, { status: 500 });
+  }
+
+  const isCustomer = recipientProfile?.role_id === "customer";
+  const hasRecipientEmail = Boolean(normalizedRecipientEmail);
+  const emailMatches = hasRecipientEmail && normalizedRecipientEmail === normalizedUserEmail;
+  if (!verifiedEmail || !isCustomer || !emailMatches) {
+    console.info("[experience] recipient access denied", {
+      verifiedEmail,
+      isCustomer,
+      hasRecipientEmail,
+      emailMatches,
+    });
+    return NextResponse.json({
+      error: !verifiedEmail
+        ? "Email akun ini belum diverifikasi. Verifikasi email akun terlebih dahulu."
+        : !isCustomer
+          ? "Akses cerita digital hanya tersedia untuk akun Customer."
+          : "Akun yang sedang digunakan bukan akun dengan email penerima hadiah ini.",
+    }, { status: 403 });
   }
   if (new Date(access.expires_at).getTime() <= Date.now()) return NextResponse.json({ error: "Masa akses cerita sudah berakhir. QR berlaku selama 7 hari sejak pembayaran." }, { status: 410 });
 

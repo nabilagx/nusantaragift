@@ -98,7 +98,7 @@ export default function DigitalGiftExperience({ token }: { token: string }) {
       <LockKeyhole size={42} className="mx-auto text-[#93372A]" />
       <h1 className="mt-4 font-display text-2xl text-[#431714]">Cerita belum dapat dibuka</h1>
       <p className="mt-3 text-sm leading-6 text-[#806A4E]">{error || "Konten cerita belum tersedia untuk Gift Card ini."}</p>
-      <Link href={"/login?next=" + encodeURIComponent("/experience/" + token)} className="mt-6 inline-flex rounded-full bg-[#93372A] px-6 py-3 text-sm font-bold text-white">Login sebagai penerima</Link>
+      <Link href="/shop" className="mt-6 inline-flex rounded-full border border-[#CDBB9F] px-6 py-3 text-sm font-bold text-[#79552F]">Kembali ke NusantaraGift</Link>
     </div></ShopLayout>;
   }
 
