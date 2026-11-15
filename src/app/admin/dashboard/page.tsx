@@ -100,6 +100,7 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [catalogStatusFilter, setCatalogStatusFilter] = useState("all");
   const [salesSort, setSalesSort] = useState("high");
+  const [reasonDialog, setReasonDialog] = useState<{ id: string; action: "review" | "warn" | "suspend" | "ban" | "restore"; title: string; value: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -136,23 +137,42 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
 
 
   async function review(id: string, status: "active" | "rejected") {
-    const note = status === "rejected"
-      ? window.prompt("Alasan revisi untuk UMKM (minimal 10 karakter):")
-      : "Produk memenuhi standar kurasi.";
-    if (!note || note.trim().length < 10) {
-      if (status === "rejected") setError("Alasan revisi wajib diisi minimal 10 karakter.");
+    if (status === "rejected") {
+      setReasonDialog({ id, action: "review", title: "Alasan revisi untuk UMKM", value: "" });
       return;
     }
     setBusy(id); setError(""); setMessage("");
     try {
       const r = await fetch(`/api/admin/products/${id}/review`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, note: note.trim() }),
+        body: JSON.stringify({ status, note: "Produk memenuhi standar kurasi." }),
       });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Moderasi gagal.");
-      setMessage(status === "active" ? "Produk disetujui dan dipublikasikan." : "Produk dikembalikan untuk perbaikan.");
+      setMessage("Produk disetujui dan dipublikasikan.");
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Moderasi gagal."); }
+    finally { setBusy(""); }
+  }
+
+  async function submitReason(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!reasonDialog) return;
+    const { id, action, value } = reasonDialog;
+    const reason = value.trim();
+    if (reason.length < 10) { setError("Alasan wajib diisi minimal 10 karakter."); return; }
+    setBusy(id); setError(""); setMessage("");
+    try {
+      const isReview = action === "review";
+      const r = await fetch(isReview ? `/api/admin/products/${id}/review` : `/api/admin/products/${id}/moderate`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(isReview ? { status: "rejected", note: reason } : { action, reason }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Tindakan moderasi gagal.");
+      setReasonDialog(null);
+      setMessage(isReview ? "Produk dikembalikan untuk perbaikan." : "Tindakan moderasi dan alasannya berhasil dicatat.");
+      await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Tindakan moderasi gagal."); }
     finally { setBusy(""); }
   }
 
@@ -168,29 +188,8 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
   }
 
   async function moderateProduct(id: string, action: "warn" | "suspend" | "ban" | "restore") {
-    const reason = window.prompt(
-      action === "warn" ? "Alasan peringatan (minimal 10 karakter):" :
-      action === "suspend" ? "Alasan penangguhan produk (minimal 10 karakter):" :
-      action === "ban" ? "Alasan pelarangan produk (minimal 10 karakter):" :
-      "Alasan pemulihan produk (minimal 10 karakter):"
-    );
-    if (!reason || reason.trim().length < 10) {
-      setError("Alasan moderasi wajib diisi minimal 10 karakter.");
-      return;
-    }
-    setBusy(id); setError(""); setMessage("");
-    try {
-      const r = await fetch(`/api/admin/products/${id}/moderate`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, reason: reason.trim() }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Tindakan moderasi gagal.");
-      setMessage("Tindakan moderasi dan alasannya berhasil dicatat.");
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Tindakan moderasi gagal.");
-    } finally { setBusy(""); }
+    const labels = { warn: "Alasan peringatan", suspend: "Alasan penangguhan produk", ban: "Alasan pelarangan produk", restore: "Alasan pemulihan produk" };
+    setReasonDialog({ id, action, title: labels[action], value: "" });
   }
 
   async function createAdminProduct(e: React.FormEvent<HTMLFormElement>) {
@@ -438,5 +437,16 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
       <EditorialFooter/>
     </section>
 )}
+    {reasonDialog && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#241613]/60 p-4" role="presentation" onMouseDown={(e)=>{ if(e.target===e.currentTarget) setReasonDialog(null); }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="moderation-dialog-title" className="w-full max-w-lg rounded-2xl border border-[#DCD2C1] bg-[#FDFAF3] p-5 shadow-2xl sm:p-7">
+        <div className="flex items-start justify-between gap-4"><div><p className="text-[9px] font-bold tracking-[.16em] text-[#C79854]">NUSANTARA GIFT · MODERATION</p><h2 id="moderation-dialog-title" className="mt-2 font-display text-2xl text-[#431714]">{reasonDialog.title}</h2><p className="mt-2 text-xs leading-5 text-[#7A6C5E]">Tuliskan alasan yang jelas agar UMKM memahami tindakan dan langkah perbaikannya.</p></div><button type="button" onClick={()=>setReasonDialog(null)} aria-label="Tutup dialog" className="rounded-full p-2 text-[#7A6C5E] hover:bg-[#F3EBDD]"><X size={18}/></button></div>
+        <form onSubmit={submitReason} className="mt-5">
+          <label htmlFor="moderation-reason" className="text-[10px] font-bold text-[#431714]">ALASAN MODERASI</label>
+          <textarea id="moderation-reason" autoFocus required minLength={10} maxLength={1000} rows={5} value={reasonDialog.value} onChange={e=>setReasonDialog(current=>current?{...current,value:e.target.value}:current)} placeholder="Jelaskan alasan secara spesifik (minimal 10 karakter)..." className="mt-2 w-full resize-y rounded-xl border border-[#DCD2C1] bg-white p-3 text-sm leading-6 text-[#251E1A] outline-none focus:border-[#93372A] focus:ring-2 focus:ring-[#93372A]/10"/>
+          <div className="mt-2 flex items-center justify-between text-[10px] text-[#8A7965]"><span>Minimal 10 karakter</span><span>{reasonDialog.value.trim().length}/1000</span></div>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={()=>setReasonDialog(null)} className="rounded-full border border-[#DCD2C1] px-5 py-3 text-xs font-bold text-[#7A6C5E]">Batal</button><button type="submit" disabled={busy===reasonDialog.id || reasonDialog.value.trim().length<10} className="rounded-full bg-[#93372A] px-5 py-3 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{busy===reasonDialog.id?"Menyimpan...":"Simpan tindakan"}</button></div>
+        </form>
+      </section>
+    </div>}
   </DashboardShell>;
 }

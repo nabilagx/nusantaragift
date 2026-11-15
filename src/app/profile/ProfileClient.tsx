@@ -49,7 +49,7 @@ export default function ProfilePage() {
     setSigningOut(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signOut({ scope: "local" });
+      const { error } = await supabase.auth.signOut({ scope: "global" });
       if (error) throw error;
       try {
         localStorage.removeItem("nusantragift-cart");

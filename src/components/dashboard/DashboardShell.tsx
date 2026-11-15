@@ -54,7 +54,7 @@ export default function DashboardShell({
     setLogoutError("");
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signOut({ scope: "local" });
+      const { error } = await supabase.auth.signOut({ scope: "global" });
       if (error) throw error;
 
       // Clear only browser-side shopping state; saved favorites remain tied to the account.
@@ -112,13 +112,16 @@ export default function DashboardShell({
       </aside>
 
       <div className="relative z-10 xl:pl-[260px]">
-        <header className="sticky top-0 z-30 border-b border-[#E7DDCC] bg-[#FDFAF3]/95 backdrop-blur-xl xl:hidden">
-          <div className="flex h-[76px] items-center justify-between px-5">
-            <Link href={home} className="min-w-0"><img src="/images/brand/LOGO.svg" alt="Nusantara Gift" className="h-10 w-[146px] object-contain object-left"/><span className={`mt-1 block text-[8px] font-bold tracking-[.12em] ${role === "ADMIN" ? "text-[#D8B77C]" : "text-[#C79854]"}`}>{mobileRole}</span></Link>
-            <div className="flex items-center gap-2">
-              <span aria-hidden="true" className={`relative ${role === "ADMIN" ? "text-[#E5C58D]" : "text-[#431714]"}`}><Bell size={19} strokeWidth={1.7}/><span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-[#93372A]"/></span>
-              <button onClick={() => void logout()} disabled={loggingOut} aria-label="Keluar akun"
-                className="rounded-full border border-[#E5C58D] bg-[#93372A] p-2.5 text-white shadow-md transition hover:bg-[#76291F] disabled:cursor-wait disabled:opacity-60"><LogOut size={17} strokeWidth={2.4}/></button>
+        <header className="sticky top-0 z-30 border-b border-[#E7DDCC] bg-[#FDFAF3]/95 backdrop-blur-xl">
+          <div className="flex h-[76px] items-center justify-between gap-4 px-5 sm:px-7">
+            <Link href={home} className="min-w-0 xl:hidden"><img src="/images/brand/LOGO.svg" alt="Nusantara Gift" className="h-10 w-[146px] object-contain object-left"/><span className="mt-1 block text-[8px] font-bold tracking-[.12em] text-[#93372A]">{mobileRole}</span></Link>
+            <div className="hidden min-w-0 xl:block"><p className="text-[9px] font-bold tracking-[.16em] text-[#C79854]">{roleLabel}</p><p className="mt-1 text-xs text-[#7A6C5E]">{title}</p></div>
+            <div className="ml-auto flex items-center gap-3">
+              <span className="hidden text-[10px] font-semibold text-[#7A6C5E] sm:inline">{role === "ADMIN" ? "Administrator" : "Akun artisan"}</span>
+              <button onClick={() => void logout()} disabled={loggingOut} aria-label="Keluar akun" title="Keluar akun"
+                className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#E5C58D] bg-[#93372A] px-4 text-[11px] font-bold text-white shadow-sm transition hover:bg-[#76291F] disabled:cursor-wait disabled:opacity-60">
+                <LogOut size={16} strokeWidth={2.4}/><span>{loggingOut ? "Mengakhiri sesi..." : "Keluar"}</span>
+              </button>
             </div>
           </div>
         </header>
