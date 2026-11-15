@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -11,7 +11,6 @@ type Tab = "Koleksi" | "Komunitas" | "Ulasan";
 
 export default function ProfilePage() {
   const [tab, setTab] = useState<Tab>("Koleksi");
-  const supabase = useMemo(() => createClient(), []);
   const [signingOut, setSigningOut] = useState(false);
 
   // Figma assets are referenced directly so the page can render without
@@ -31,6 +30,7 @@ export default function ProfilePage() {
   // Read the signed-in user's Supabase profile on mount.
   useEffect(() => {
     let active = true;
+    const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
       if (!active || !data.user) return;
       const user = data.user;
@@ -42,12 +42,13 @@ export default function ProfilePage() {
       });
     });
     return () => { active = false; };
-  }, [supabase]);
+  }, []);
 
   const handleSignOut = async () => {
     if (signingOut) return;
     setSigningOut(true);
     try {
+      const supabase = createClient();
       const { error } = await supabase.auth.signOut({ scope: "local" });
       if (error) throw error;
       try {
