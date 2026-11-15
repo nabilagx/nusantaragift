@@ -2,6 +2,9 @@ import Link from "next/link";
 import { BookOpen, LockKeyhole } from "lucide-react";
 import ShopLayout from "@/components/shop/ShopLayout";
 
+// This route reads the request-specific story slug and must render on demand.
+export const instant = false;
+
 export default async function StoryPreviewPage({
   params,
 }: {
