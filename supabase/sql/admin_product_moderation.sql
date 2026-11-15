@@ -8,7 +8,7 @@ alter table public.products
   add constraint products_status_check
   check (status = any (array[
     'draft','pending_review','active','archived','rejected','suspended','banned'
-  ]::text[]);
+  ]::text[]));
 
 create table if not exists public.product_moderation_events (
   id uuid primary key default gen_random_uuid(),
