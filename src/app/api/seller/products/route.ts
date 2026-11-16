@@ -27,9 +27,48 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Silakan login." }, { status: 401 });
   const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).single();
   if (profile?.role_id !== "umkm") return NextResponse.json({ error: "Akses khusus UMKM." }, { status: 403 });
-  const { data, error } = await supabase.from("products").select("id,name,slug,description,price,stock,status,moderation_note,created_at,metadata,categories(name)").eq("seller_id", user.id).order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("products")
+    .select("id,name,slug,description,price,stock,status,moderation_note,created_at,metadata,categories(name)")
+    .eq("seller_id", user.id).order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: "Gagal mengambil produk." }, { status: 500 });
-  return NextResponse.json({ products: data ?? [] });
+
+  const productIds = (data ?? []).map((product) => product.id);
+  const [eventResult, imageResult] = await Promise.all([
+    productIds.length
+      ? supabase.from("product_moderation_events")
+          .select("id,product_id,actor_id,action,reason,previous_status,new_status,created_at")
+          .in("product_id", productIds).order("created_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    productIds.length
+      ? supabase.from("product_images").select("product_id,image_url,alt_text,sort_order")
+          .in("product_id", productIds).order("sort_order", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (eventResult.error || imageResult.error) {
+    console.error("Seller product history:", eventResult.error || imageResult.error);
+    return NextResponse.json({ error: "Riwayat produk gagal dimuat." }, { status: 500 });
+  }
+
+  const historyByProduct = new Map<string, typeof eventResult.data>();
+  for (const event of eventResult.data ?? []) {
+    const list = historyByProduct.get(event.product_id) ?? [];
+    list.push(event);
+    historyByProduct.set(event.product_id, list);
+  }
+  const imagesByProduct = new Map<string, { image_url: string; alt_text: string | null }[]>();
+  for (const image of imageResult.data ?? []) {
+    const list = imagesByProduct.get(image.product_id) ?? [];
+    list.push({ image_url: image.image_url, alt_text: image.alt_text ?? null });
+    imagesByProduct.set(image.product_id, list);
+  }
+
+  return NextResponse.json({
+    products: (data ?? []).map((product) => ({
+      ...product,
+      moderation_history: historyByProduct.get(product.id) ?? [],
+      images: imagesByProduct.get(product.id) ?? [],
+    })),
+  });
 }
 
 export async function POST(request: Request) {
@@ -85,16 +124,23 @@ export async function PATCH(request: Request) {
   if (!id) return NextResponse.json({ error: "ID produk tidak valid." }, { status: 400 });
 
   const { data: current, error: findError } = await supabase.from("products")
-    .select("id,name,status,stock").eq("id", id).eq("seller_id", user.id).maybeSingle();
+    .select("id,name,status,stock,metadata").eq("id", id).eq("seller_id", user.id).maybeSingle();
   if (findError || !current) return NextResponse.json({ error: "Produk tidak ditemukan." }, { status: 404 });
 
   if (action === "archive" || action === "restore") {
+    if (action === "restore" && current.status !== "archived") {
+      return NextResponse.json({ error: "Hanya produk yang diarsipkan yang dapat dipulihkan. Listing yang ditangguhkan atau dilarang hanya dapat dipulihkan moderator." }, { status: 409 });
+    }
+    if (action === "archive" && ["suspended", "banned"].includes(current.status)) {
+      return NextResponse.json({ error: "Listing yang ditangguhkan atau dilarang tidak dapat diarsipkan sendiri. Hubungi moderator setelah memperbaiki produk." }, { status: 409 });
+    }
     const nextStatus = action === "archive" ? "archived" : "pending_review";
     const { data, error } = await supabase.from("products")
       .update({ status: nextStatus, updated_at: new Date().toISOString() })
       .eq("id", id).eq("seller_id", user.id)
       .select("id,name,status,stock").single();
     if (error) return NextResponse.json({ error: "Status produk gagal diperbarui." }, { status: 400 });
+    if (data.status !== nextStatus) return NextResponse.json({ error: "Status listing dilindungi moderator dan tidak dapat diubah oleh UMKM." }, { status: 409 });
     return NextResponse.json({ product: data });
   }
 
@@ -126,13 +172,20 @@ export async function PATCH(request: Request) {
   const previousMetadata = current as typeof current & { metadata?: Record<string, unknown> };
   const metadata = { ...(previousMetadata.metadata ?? {}), region: "Indonesia", size: "1 Paket", image, imageAlt: name,
     summary: { type: categorySlug, format: "Produk UMKM", unlock: "Fisik" } };
-  const nextStatus = ["rejected", "suspended", "banned"].includes(current.status) ? "pending_review" : current.status;
+  const wasModerated = ["suspended", "banned"].includes(current.status);
   const { data, error } = await supabase.from("products").update({
-    name, description, category_id: category.id, price, stock, metadata, status: nextStatus, updated_at: new Date().toISOString(),
+    name, description, category_id: category.id, price, stock, metadata, updated_at: new Date().toISOString(),
   }).eq("id", id).eq("seller_id", user.id)
-    .select("id,name,slug,price,stock,status,metadata").single();
+    .select("id,name,slug,price,stock,status,moderation_note,metadata").single();
   if (error) return NextResponse.json({ error: "Perubahan produk gagal disimpan." }, { status: 400 });
-  return NextResponse.json({ product: data });
+  return NextResponse.json({
+    product: data,
+    message: wasModerated
+      ? "Perubahan tersimpan. Listing tetap ditangguhkan/dilarang sampai moderator meninjau dan memulihkannya."
+      : data.status === "pending_review"
+        ? "Perubahan tersimpan dan produk masuk antrean kurasi."
+        : "Perubahan produk berhasil disimpan.",
+  });
 }
 
 export async function DELETE(request: Request) {
@@ -144,11 +197,18 @@ export async function DELETE(request: Request) {
   if (!user) return NextResponse.json({ error: "Silakan login." }, { status: 401 });
   const { data: profile } = await supabase.from("profiles").select("role_id").eq("id", user.id).single();
   if (profile?.role_id !== "umkm") return NextResponse.json({ error: "Akses khusus UMKM." }, { status: 403 });
+  const { data: current, error: currentError } = await supabase.from("products")
+    .select("id,status").eq("id", id).eq("seller_id", user.id).maybeSingle();
+  if (currentError || !current) return NextResponse.json({ error: "Produk tidak ditemukan." }, { status: 404 });
+  if (["suspended", "banned"].includes(current.status)) {
+    return NextResponse.json({ error: "Listing yang ditangguhkan atau dilarang tidak dapat diarsipkan sendiri. Hubungi moderator setelah memperbaiki produk." }, { status: 409 });
+  }
   const { data: product, error } = await supabase.from("products")
     .update({ status: "archived", updated_at: new Date().toISOString() })
     .eq("id", id).eq("seller_id", user.id)
     .select("id,name,status").maybeSingle();
   if (error) return NextResponse.json({ error: "Produk gagal diarsipkan." }, { status: 400 });
   if (!product) return NextResponse.json({ error: "Produk tidak ditemukan." }, { status: 404 });
+  if (product.status !== "archived") return NextResponse.json({ error: "Status listing tidak dapat diubah oleh UMKM." }, { status: 409 });
   return NextResponse.json({ product, archived: true });
 }
