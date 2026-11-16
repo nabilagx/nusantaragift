@@ -4,15 +4,25 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
-  AlertCircle, ArrowRight, ArrowUpRight, BadgeCheck, Check, Clock3, FileText,
+  AlertCircle, ArrowRight, ArrowUpRight, BadgeCheck, Check, Clock3, FileText, Eye,
   Package, RefreshCw, ShieldCheck, ShoppingBag, Store, Truck, Users, Wallet,
   X, Activity, Settings, ClipboardCheck, type LucideIcon,
 } from "lucide-react";
 import DashboardShell, { type DashboardNavItem } from "@/components/dashboard/DashboardShell";
 
+type ModerationEvent = {
+  id: string; actor_id: string | null; action: string; reason: string;
+  previous_status: string | null; new_status: string | null; created_at: string;
+};
 type Product = {
-  id: string; name: string; description: string | null; price: number; stock: number;
-  seller_name: string; category_name: string; created_at: string; status: string; sales_count?: number; metadata?: Record<string, unknown>; moderation_note?: string | null;
+  id: string; name: string; slug?: string; description: string | null; price: number; stock: number;
+  seller_id?: string; category_id?: string; sku?: string | null; compare_at_price?: number | null;
+  weight_gram?: number | null; delivery_type?: string | null; is_gift_card_enabled?: boolean;
+  seller_name: string; category_name: string; created_at: string; status: string; sales_count?: number;
+  metadata?: Record<string, unknown>; moderation_note?: string | null;
+  images?: { url: string; alt: string | null }[];
+  seller_details?: { user_id: string; business_name: string; slug: string | null; description: string | null; phone: string | null; email: string | null; address: string | null; logo_url: string | null; banner_url: string | null; status: string; created_at: string } | null;
+  moderation_history?: ModerationEvent[];
 };
 type AdminNotice = { id: string; title: string; message: string; type: string; created_at: string };
 type Order = {
@@ -23,7 +33,7 @@ type Order = {
   order_items: { product_name: string; quantity: number; line_total: number }[];
 };
 type Trend = { date: string; label: string; orders: number; revenue: number };
-type Seller = { user_id: string; name: string; status: string; created_at: string; description?: string | null; slug?: string };
+type Seller = { user_id: string; name: string; status: string; created_at: string; description?: string | null; slug?: string; phone?: string | null; email?: string | null; address?: string | null; logo_url?: string | null; banner_url?: string | null };
 type Metrics = {
   totalOrders: number; paidOrders: number; pendingShipping: number; revenue: number;
   totalProducts: number; activeProducts: number; pendingProducts: number; lowStock: number;
@@ -78,10 +88,7 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
   const [products, setProducts] = useState<Product[]>([]);
   const [catalog, setCatalog] = useState<Product[]>([]);
   const [notices, setNotices] = useState<AdminNotice[]>([]);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [editValues, setEditValues] = useState({ name: "", description: "", price: "", stock: "" });
-  const [creatingProduct, setCreatingProduct] = useState(false);
-  const [createValues, setCreateValues] = useState({ sellerId: "", name: "", description: "", category: "cerita", price: "", stock: "1", imageUrl: "" });
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [metrics, setMetrics] = useState<Metrics>({
     totalOrders: 0, paidOrders: 0, pendingShipping: 0, revenue: 0, totalProducts: 0,
@@ -176,32 +183,9 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
     finally { setBusy(""); }
   }
 
-  async function manageProduct(id: string, action: "archive" | "restore" | "stock", delta?: number) {
-    setBusy(id); setError(""); setMessage("");
-    try {
-      const r = await fetch("/api/admin/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action, delta }) });
-      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Produk gagal diperbarui.");
-      setMessage(action === "stock" ? "Stok produk diperbarui." : action === "archive" ? "Produk diarsipkan. Riwayat tetap tersedia." : "Produk dikembalikan ke antrean kurasi.");
-      await load();
-    } catch (e) { setError(e instanceof Error ? e.message : "Produk gagal diperbarui."); }
-    finally { setBusy(""); }
-  }
-
   async function moderateProduct(id: string, action: "warn" | "suspend" | "ban" | "restore") {
     const labels = { warn: "Alasan peringatan", suspend: "Alasan penangguhan produk", ban: "Alasan pelarangan produk", restore: "Alasan pemulihan produk" };
     setReasonDialog({ id, action, title: labels[action], value: "" });
-  }
-
-  async function createAdminProduct(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault(); setBusy("create"); setError(""); setMessage("");
-    try {
-      const r = await fetch("/api/admin/overview", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...createValues, price: Number(createValues.price), stock: Number(createValues.stock) }) });
-      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Produk gagal dibuat.");
-      setCreatingProduct(false); setCreateValues({ sellerId: "", name: "", description: "", category: "cerita", price: "", stock: "1", imageUrl: "" });
-      setMessage("Produk berhasil dibuat dan masuk antrean kurasi."); await load();
-    } catch (e) { setError(e instanceof Error ? e.message : "Produk gagal dibuat."); }
-    finally { setBusy(""); }
   }
 
   async function markNoticeRead(notificationId: string) {
@@ -210,17 +194,6 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Notifikasi gagal diperbarui.");
       setNotices(current => current.filter(item => item.id !== notificationId));
     } catch (e) { setError(e instanceof Error ? e.message : "Notifikasi gagal diperbarui."); }
-  }
-
-  async function saveAdminProduct(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault(); if (!editingProduct) return;
-    setBusy(editingProduct.id); setError(""); setMessage("");
-    try {
-      const r = await fetch("/api/admin/overview", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editingProduct.id, ...editValues, price: Number(editValues.price), stock: Number(editValues.stock) }) });
-      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Perubahan produk gagal disimpan.");
-      setEditingProduct(null); setMessage("Detail produk berhasil diperbarui."); await load();
-    } catch (e) { setError(e instanceof Error ? e.message : "Perubahan produk gagal disimpan."); }
-    finally { setBusy(""); }
   }
 
   async function quote(orderNumber: string) {
@@ -337,9 +310,9 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
           <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-display text-[20px] text-[#431714]">Produk dalam antrean</h3><span className="rounded-full bg-[#F3EBDD] px-3 py-1.5 text-[9px] font-bold text-[#93372A]">{filteredCurationProducts.length} hasil</span></div><div className="mt-4 grid gap-2 sm:grid-cols-[1fr_190px]"><input value={productSearch} onChange={e=>setProductSearch(e.target.value)} aria-label="Cari produk, UMKM, atau kategori" placeholder="Cari nama produk, UMKM, kategori..." className="h-11 w-full rounded-xl border border-[#DCD2C1] bg-white px-4 text-sm outline-none focus:border-[#93372A]"/><select value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)} aria-label="Filter kategori kurasi" className="h-11 w-full rounded-xl border border-[#DCD2C1] bg-white px-3 text-sm"><option value="all">Semua kategori</option>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
           {loading ? <p className="py-8 text-center text-[11px] text-[#7A6C5E]">Memuat antrean kurasi...</p> : filteredCurationProducts.length === 0 ? <div className="py-12 text-center"><ShieldCheck size={25} className="mx-auto text-[#C7B69F]"/><p className="mt-3 text-[11px] text-[#7A6C5E]">Tidak ada produk yang cocok dengan pencarian atau filter ini.</p></div> :
             <div className="mt-4 space-y-3">{filteredCurationProducts.map(p=><div key={p.id} className="flex flex-col gap-3 rounded-lg border border-[#E7DDCC] bg-white p-4 sm:flex-row sm:items-center">
-              {typeof p.metadata?.image === "string" && p.metadata.image ? <img src={p.metadata.image} alt="" className="h-16 w-16 rounded-md bg-[#F7F1E3] object-cover"/> : <span className="flex h-16 w-16 items-center justify-center rounded-md bg-[#F3EBDD] text-[#C79854]"><Package size={22}/></span>}
+              {(p.images?.[0]?.url || (typeof p.metadata?.image === "string" ? p.metadata.image : "")) ? <img src={p.images?.[0]?.url || String(p.metadata?.image)} alt={p.images?.[0]?.alt || p.name} className="h-16 w-16 rounded-md bg-[#F7F1E3] object-cover"/> : <span className="flex h-16 w-16 items-center justify-center rounded-md bg-[#F3EBDD] text-[#C79854]"><Package size={22}/></span>}
               <div className="min-w-0 flex-1"><p className="text-[8px] font-bold tracking-[.1em] text-[#C79854]">{p.category_name} · {p.seller_name}</p><h4 className="mt-1 text-[11px] font-bold text-[#251E1A]">{p.name}</h4><p className="mt-1 line-clamp-2 text-[9px] leading-4 text-[#7A6C5E]">{p.description || "Deskripsi produk belum tersedia."}</p><p className="mt-1 text-[9px] font-semibold text-[#431714]">{money(p.price)} · Stok {p.stock}</p></div>
-              <div className="flex shrink-0 gap-2 sm:flex-col"><button disabled={busy===p.id} onClick={()=>void review(p.id,"active")} className="inline-flex items-center justify-center gap-1 rounded-full bg-[#93372A] px-3 py-2 text-[8px] font-bold text-white disabled:opacity-50"><Check size={12}/> Setujui</button><button disabled={busy===p.id} onClick={()=>void review(p.id,"rejected")} className="inline-flex items-center justify-center gap-1 rounded-full border border-[#E6C7BD] px-3 py-2 text-[8px] font-bold text-[#93372A] disabled:opacity-50"><X size={12}/> Minta revisi</button></div>
+              <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col"><button type="button" onClick={()=>setDetailProduct(p)} className="inline-flex items-center justify-center gap-1 rounded-full border border-[#DCD2C1] px-3 py-2 text-[8px] font-bold text-[#79552F]"><Eye size={12}/> Detail</button><button disabled={busy===p.id} onClick={()=>void review(p.id,"active")} className="inline-flex items-center justify-center gap-1 rounded-full bg-[#93372A] px-3 py-2 text-[8px] font-bold text-white disabled:opacity-50"><Check size={12}/> Setujui</button><button disabled={busy===p.id} onClick={()=>void review(p.id,"rejected")} className="inline-flex items-center justify-center gap-1 rounded-full border border-[#E6C7BD] px-3 py-2 text-[8px] font-bold text-[#93372A] disabled:opacity-50"><X size={12}/> Minta revisi</button></div>
             </div>)}</div>}
         </article>
         <aside className="rounded-[13px] border border-[#DCD2C1] bg-[#FDFAF3] p-5">
@@ -361,13 +334,14 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
         {loading ? <p className="py-8 text-center text-[11px] text-[#7A6C5E]">Memuat katalog...</p> : filteredCatalog.length===0 ? <p className="py-10 text-center text-[11px] text-[#7A6C5E]">Tidak ada produk pada filter ini.</p> :
           <div className="mt-4 space-y-3">{filteredCatalog.map(p=><article key={p.id} className="rounded-xl border border-[#E7DDCC] bg-white p-3 sm:p-4">
             <div className="flex items-start gap-3">
-              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-[#F3EBDD]">{typeof p.metadata?.image==="string"&&p.metadata.image?<img src={p.metadata.image} alt={p.name} className="h-full w-full object-cover"/>:<div className="flex h-full items-center justify-center text-[#C79854]"><Package size={22}/></div>}</div>
+              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-[#F3EBDD]">{(p.images?.[0]?.url || (typeof p.metadata?.image==="string" ? p.metadata.image : ""))?<img src={p.images?.[0]?.url || String(p.metadata?.image)} alt={p.images?.[0]?.alt || p.name} className="h-full w-full object-cover"/>:<div className="flex h-full items-center justify-center text-[#C79854]"><Package size={22}/></div>}</div>
               <div className="min-w-0 flex-1"><div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="text-[8px] font-bold tracking-[.1em] text-[#9A713A]">{p.seller_name} · {p.category_name}</p><h4 className="mt-1 text-[11px] font-bold text-[#251E1A]">{p.name}</h4></div><span className={`rounded-full px-2.5 py-1 text-[8px] font-bold ${statusClass(p.status)}`}>{p.status==="active"?"Tayang":p.status==="pending_review"?"Menunggu kurasi":p.status==="rejected"?"Perlu revisi":p.status==="suspended"?"Ditangguhkan":p.status==="banned"?"Dilarang":p.status==="archived"?"Diarsipkan":p.status}</span></div>
                 <p className="mt-1 text-[9px] text-[#7A6C5E]">{money(p.price)} · Stok {p.stock} · Terjual {p.sales_count??0} unit</p><p className="mt-1 text-[9px] leading-4 text-[#7A6C5E]">{p.description||"Deskripsi belum tersedia."}</p>
                 {p.moderation_note&&<p className="mt-2 rounded-lg bg-[#FFF5E7] p-2 text-[9px] text-[#8B5B20]">Catatan moderasi: {p.moderation_note}</p>}
               </div>
             </div>
             <div className="mt-3 flex flex-wrap gap-2 border-t border-[#E8DFD2] pt-3">
+              <button type="button" onClick={()=>setDetailProduct(p)} className="rounded-full border border-[#DCD2C1] px-3 py-2 text-[8px] font-bold text-[#79552F]"><Eye size={12} className="mr-1 inline"/>Detail produk</button>
               <button disabled={busy===p.id} onClick={()=>void moderateProduct(p.id,"warn")} className="rounded-full border border-[#DCD2C1] px-3 py-2 text-[8px] font-bold text-[#79552F] disabled:opacity-50">Beri peringatan</button>
               {p.status!=="suspended"&&p.status!=="banned"&&p.status!=="archived"&&<button disabled={busy===p.id} onClick={()=>void moderateProduct(p.id,"suspend")} className="rounded-full border border-[#E6C7BD] px-3 py-2 text-[8px] font-bold text-[#93372A] disabled:opacity-50">Tangguhkan</button>}
               {p.status!=="banned"&&<button disabled={busy===p.id} onClick={()=>void moderateProduct(p.id,"ban")} className="rounded-full bg-[#5A202A] px-3 py-2 text-[8px] font-bold text-white disabled:opacity-50">Larangan tampil</button>}
@@ -437,6 +411,61 @@ export default function AdminDashboardPage({ module = "overview" }: { module?: s
       <EditorialFooter/>
     </section>
 )}
+
+    {detailProduct && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#241613]/65 p-3 sm:p-6" role="presentation" onMouseDown={(event)=>{if(event.target===event.currentTarget)setDetailProduct(null);}}>
+      <section role="dialog" aria-modal="true" aria-labelledby="product-detail-title" className="max-h-[90dvh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-[#DCD2C1] bg-[#FDFAF3] p-4 shadow-2xl sm:p-6">
+        <div className="flex items-start justify-between gap-4 border-b border-[#E8DFD2] pb-4">
+          <div><p className="text-[9px] font-bold tracking-[.16em] text-[#C79854]">READ-ONLY PRODUCT REVIEW</p><h2 id="product-detail-title" className="mt-1 font-display text-2xl text-[#431714]">{detailProduct.name}</h2><p className="mt-1 text-[10px] text-[#7A6C5E]">Detail katalog hanya untuk dilihat. Perubahan produk dilakukan oleh UMKM pemilik.</p></div>
+          <button type="button" onClick={()=>setDetailProduct(null)} aria-label="Tutup detail produk" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#DCD2C1] text-[#7A6C5E] hover:bg-[#F3EBDD]"><X size={18}/></button>
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
+          <div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {(detailProduct.images?.length ? detailProduct.images : typeof detailProduct.metadata?.image==="string" ? [{url:String(detailProduct.metadata.image),alt:detailProduct.name}] : []).map((image,index)=><div key={image.url+index} className="aspect-square overflow-hidden rounded-xl border border-[#E8DFD2] bg-white"><img src={image.url} alt={image.alt || detailProduct.name} className="h-full w-full object-cover"/></div>)}
+            </div>
+            {(!detailProduct.images || detailProduct.images.length===0) && typeof detailProduct.metadata?.image!=="string" && <div className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-[#DCD2C1] text-xs text-[#8A7965]">Belum ada foto produk.</div>}
+            <div className="mt-4 rounded-xl border border-[#E8DFD2] bg-white p-4">
+              <h3 className="text-[10px] font-bold tracking-[.12em] text-[#9A713A]">DESKRIPSI PRODUK</h3>
+              <p className="mt-2 whitespace-pre-line text-xs leading-6 text-[#574638]">{detailProduct.description || "Deskripsi belum tersedia."}</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="rounded-xl border border-[#E8DFD2] bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-[9px] font-bold tracking-[.12em] text-[#9A713A]">STATUS LISTING</span><span className={`rounded-full px-3 py-1.5 text-[9px] font-bold ${statusClass(detailProduct.status)}`}>{detailProduct.status==="active"?"Tayang":detailProduct.status==="pending_review"?"Menunggu kurasi":detailProduct.status==="rejected"?"Perlu revisi":detailProduct.status==="suspended"?"Ditangguhkan":detailProduct.status==="banned"?"Dilarang":detailProduct.status==="archived"?"Diarsipkan":detailProduct.status}</span></div>
+              <p className="mt-3 font-display text-2xl text-[#431714]">{money(detailProduct.price)}</p>
+              <p className="mt-1 text-[10px] text-[#7A6C5E]">Kategori {detailProduct.category_name} · Stok {detailProduct.stock} · Terjual {detailProduct.sales_count ?? 0}</p>
+              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[#E8DFD2] pt-3 text-[10px]">
+                <div><p className="text-[#8A7965]">SKU</p><p className="mt-1 font-semibold text-[#431714]">{detailProduct.sku || "—"}</p></div>
+                <div><p className="text-[#8A7965]">Jenis</p><p className="mt-1 font-semibold text-[#431714]">{detailProduct.delivery_type || "Fisik"}</p></div>
+                <div><p className="text-[#8A7965]">Berat</p><p className="mt-1 font-semibold text-[#431714]">{detailProduct.weight_gram ? detailProduct.weight_gram+" gram" : "—"}</p></div>
+                <div><p className="text-[#8A7965]">Dibuat</p><p className="mt-1 font-semibold text-[#431714]">{date(detailProduct.created_at)}</p></div>
+              </div>
+              {detailProduct.moderation_note && <p className="mt-3 rounded-lg bg-[#FFF5E7] p-3 text-[10px] leading-5 text-[#8B5B20]"><strong>Catatan terbaru:</strong> {detailProduct.moderation_note}</p>}
+            </div>
+            <div className="rounded-xl border border-[#E8DFD2] bg-white p-4">
+              <h3 className="text-[10px] font-bold tracking-[.12em] text-[#9A713A]">DATA UMKM PEMILIK</h3>
+              <p className="mt-2 text-sm font-bold text-[#431714]">{detailProduct.seller_details?.business_name || detailProduct.seller_name}</p>
+              {detailProduct.seller_details?.description && <p className="mt-1 text-[10px] leading-5 text-[#7A6C5E]">{detailProduct.seller_details.description}</p>}
+              <div className="mt-3 space-y-2 border-t border-[#E8DFD2] pt-3 text-[10px] text-[#574638]">
+                <p><span className="text-[#8A7965]">Status UMKM:</span> {detailProduct.seller_details?.status || "—"}</p>
+                <p><span className="text-[#8A7965]">Email:</span> {detailProduct.seller_details?.email || "—"}</p>
+                <p><span className="text-[#8A7965]">Telepon:</span> {detailProduct.seller_details?.phone || "—"}</p>
+                <p><span className="text-[#8A7965]">Alamat:</span> {detailProduct.seller_details?.address || "—"}</p>
+                <p><span className="text-[#8A7965]">Slug toko:</span> {detailProduct.seller_details?.slug || "—"}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 rounded-xl border border-[#E8DFD2] bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-[10px] font-bold tracking-[.12em] text-[#9A713A]">RIWAYAT KURASI & MODERASI</h3><span className="text-[9px] text-[#8A7965]">{detailProduct.moderation_history?.length ?? 0} catatan</span></div>
+          {detailProduct.moderation_history?.length ? <ol className="mt-3 space-y-3">{detailProduct.moderation_history.map((event)=><li key={event.id} className="border-l-2 border-[#D8B77C] pl-3">
+            <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-[10px] font-bold text-[#431714]">{({approve:"Disetujui",request_revision:"Diminta revisi",warn:"Peringatan",suspend:"Penangguhan",ban:"Larangan tampil",restore:"Dipulihkan"} as Record<string,string>)[event.action] || event.action}</p><time className="text-[9px] text-[#8A7965]">{new Date(event.created_at).toLocaleString("id-ID")}</time></div>
+            <p className="mt-1 text-[9px] text-[#7A6C5E]">Aktor: {event.actor_id ? "Admin · "+event.actor_id.slice(0,8) : "Sistem"} · {event.previous_status || "—"} → {event.new_status || "—"}</p>
+            <p className="mt-1 whitespace-pre-line text-[10px] leading-5 text-[#574638]">{event.reason}</p>
+          </li>)}</ol> : <p className="mt-3 text-[10px] text-[#8A7965]">Belum ada tindakan moderasi yang tercatat.</p>}
+        </div>
+      </section>
+    </div>}
     {reasonDialog && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#241613]/60 p-4" role="presentation" onMouseDown={(e)=>{ if(e.target===e.currentTarget) setReasonDialog(null); }}>
       <section role="dialog" aria-modal="true" aria-labelledby="moderation-dialog-title" className="w-full max-w-lg rounded-2xl border border-[#DCD2C1] bg-[#FDFAF3] p-5 shadow-2xl sm:p-7">
         <div className="flex items-start justify-between gap-4"><div><p className="text-[9px] font-bold tracking-[.16em] text-[#C79854]">NUSANTARA GIFT · MODERATION</p><h2 id="moderation-dialog-title" className="mt-2 font-display text-2xl text-[#431714]">{reasonDialog.title}</h2><p className="mt-2 text-xs leading-5 text-[#7A6C5E]">Tuliskan alasan yang jelas agar UMKM memahami tindakan dan langkah perbaikannya.</p></div><button type="button" onClick={()=>setReasonDialog(null)} aria-label="Tutup dialog" className="rounded-full p-2 text-[#7A6C5E] hover:bg-[#F3EBDD]"><X size={18}/></button></div>
