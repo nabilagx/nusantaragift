@@ -174,7 +174,7 @@ export default function SellerStoriesPage(){
  return <DashboardShell role="UMKM" title="Cerita Audio" subtitle="Terbitkan kisah dan pengalaman dari tokomu." navItems={nav} mobileNavItems={mobileNav}>
   <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
    <div><p className="text-[9px] font-bold tracking-[.16em] text-[#C79854]">ARTISAN STORY STUDIO</p><h1 className="mt-2 font-display text-3xl text-[#431714]">{editingStoryId?"Edit cerita":"Cerita dari tokomu"}</h1><p className="mt-2 max-w-2xl text-xs leading-6 text-[#7A6C5E]">Buat dan perbarui buku cerita bergambar dengan narasi suara asli. Setiap cerita berisi 1–20 halaman dan akan diperiksa admin sebelum dipublikasikan.</p></div>
-   <Link href="/cerita" className="inline-flex items-center gap-2 rounded-full border border-[#DCD2C1] px-4 py-2.5 text-xs font-semibold text-[#6E3028]">Lihat katalog <ArrowRight size={14}/></Link>
+   <Link href="/stories" className="inline-flex items-center gap-2 rounded-full border border-[#DCD2C1] px-4 py-2.5 text-xs font-semibold text-[#6E3028]">Lihat katalog <ArrowRight size={14}/></Link>
   </div>
   {error&&<p role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{error}</p>}
   {message&&<p role="status" className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800"><CheckCircle2 size={16}/>{message}</p>}
