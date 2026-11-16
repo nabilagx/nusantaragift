@@ -23,12 +23,29 @@ export async function GET() {
     .select("id,slug,name,description,price,stock,status,moderation_note,created_at,metadata,story_pages(id,page_number,page_title,body,illustration_url,audio_url,audio_duration_seconds)")
     .eq("seller_id", auth.user.id).eq("delivery_type", "digital-audio").order("created_at", { ascending: false });
   if (error) return fail("Gagal memuat cerita UMKM.", 500);
+  const productIds = (data ?? []).map((story) => story.id);
+  const { data: events, error: eventError } = productIds.length
+    ? await auth.supabase.from("product_moderation_events")
+        .select("id,product_id,actor_id,action,reason,previous_status,new_status,created_at")
+        .in("product_id", productIds).order("created_at", { ascending: false })
+    : { data: [], error: null };
+  if (eventError) return fail("Riwayat moderasi cerita gagal dimuat.", 500);
+  const historyByProduct = new Map<string, typeof events>();
+  for (const event of events ?? []) {
+    const list = historyByProduct.get(event.product_id) ?? [];
+    list.push(event);
+    historyByProduct.set(event.product_id, list);
+  }
   const stories = await Promise.all((data ?? []).map(async (story) => {
     const pages = await Promise.all((story.story_pages ?? []).map(async (page: { illustration_url: string; audio_url: string; [key: string]: unknown }) => {
       const audio = await auth.supabase.storage.from("story-media").createSignedUrl(page.audio_url, 3600);
       return { ...page, illustration_path: page.illustration_url, audio_path: page.audio_url, illustration_url: page.illustration_url, audio_url: audio.data?.signedUrl ?? "" };
     }));
-    return { ...story, pages: pages.sort((a, b) => Number((a as unknown as { page_number: number }).page_number) - Number((b as unknown as { page_number: number }).page_number)) };
+    return {
+      ...story,
+      moderation_history: historyByProduct.get(story.id) ?? [],
+      pages: pages.sort((a, b) => Number((a as unknown as { page_number: number }).page_number) - Number((b as unknown as { page_number: number }).page_number)),
+    };
   }));
   return NextResponse.json({ stories });
 }
@@ -109,12 +126,19 @@ export async function PUT(request: Request) {
   }
   const { error: trimError } = await auth.supabase.from("story_pages").delete().eq("product_id", productId).gt("page_number", rows.length);
   if (trimError) return fail("Halaman cerita lama gagal diselaraskan.", 500);
-  const { error: updateError } = await auth.supabase.from("products").update({
+  const { data: updatedProduct, error: updateError } = await auth.supabase.from("products").update({
     status: "pending_review", price, stock, description: typeof body.description === "string" ? body.description.trim() : undefined, updated_at: new Date().toISOString(),
     metadata: { story_category: body.category, region: "Indonesia", image: coverUrl, imageAlt: "Cover cerita Nusantara", size: rows.length + " halaman", summary: { type: "Cerita digital", format: "Buku cerita audio", unlock: "Berbayar" } },
-  }).eq("id", productId).eq("seller_id", auth.user.id);
-  if (updateError) return fail("Cerita belum berhasil dikirim ke antrean admin.", 500);
-  return NextResponse.json({ success: true, message: "Cerita berhasil dikirim untuk ditinjau admin." });
+  }).eq("id", productId).eq("seller_id", auth.user.id).select("status").single();
+  if (updateError || !updatedProduct) return fail("Cerita belum berhasil disimpan.", 500);
+  const blocked = ["suspended", "banned"].includes(updatedProduct.status);
+  return NextResponse.json({
+    success: true,
+    status: updatedProduct.status,
+    message: blocked
+      ? "Perubahan cerita tersimpan. Listing tetap ditangguhkan/dilarang sampai moderator meninjau dan memulihkannya."
+      : "Cerita berhasil dikirim untuk ditinjau admin.",
+  });
 }
 
 export async function DELETE(request: Request) {
